@@ -1,0 +1,48 @@
+Proto[Unbound]:
+read: {
+  named_table: {
+    names: "test_db"
+    names: "main"
+    names: "table1"
+  }
+}
+
+
+Root Schema:
+schema:
+  fields: 3
+    - col1: type=bool
+    - col2: type=utf8
+    - col3: type=int64
+
+Proto[Bound]:
+read: {
+  base_schema: {
+    names: "col1"
+    names: "col2"
+    names: "col3"
+    struct: {
+      types: {
+        bool: {
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      types: {
+        string: {
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      types: {
+        i64: {
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      nullability: NULLABILITY_REQUIRED
+    }
+  }
+  named_table: {
+    names: "test_db"
+    names: "main"
+    names: "table1"
+  }
+}
