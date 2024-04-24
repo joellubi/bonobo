@@ -1,7 +1,8 @@
-package engine_test
+package query_test
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/backdeck/backdeck/query/df"
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/stretchr/testify/require"
 )
@@ -44,79 +47,78 @@ func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 
 var _ engine.Catalog = (*testCatalog)(nil)
 
-func TestSimpleRead(t *testing.T) {
-	name := "simple_read"
-	catalog := testCatalog{}
-	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
-
-	p := engine.NewReadOperation(table)
-
-	runTestSerialize(
-		t,
-		name,
-		p,
-		&catalog,
-	)
-
-	runTestRoundTrip(t, name, p, &catalog)
+var mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+var testcases = []struct {
+	Name      string
+	DataFrame df.DataFrame
+	Catalog   engine.Catalog
+}{
+	{
+		Name: "simple_read",
+		DataFrame: df.QueryContext(context.TODO(), mem).
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			),
+		Catalog: &testCatalog{},
+	},
+	{
+		Name: "read_project",
+		DataFrame: df.QueryContext(context.TODO(), mem).
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Select(df.ColIdx(1)),
+		Catalog: &testCatalog{},
+	},
+	{
+		Name: "read_filter_project",
+		DataFrame: df.QueryContext(context.TODO(), mem).
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Filter(df.ColIdx(1)).
+			Select(df.ColIdx(1)),
+		Catalog: &testCatalog{},
+	},
+	{
+		Name: "read_filter",
+		DataFrame: df.QueryContext(context.TODO(), mem).
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Filter(df.ColIdx(1)),
+		Catalog: &testCatalog{},
+	},
 }
 
-func TestReadProject(t *testing.T) {
-	name := "read_project"
-	catalog := testCatalog{}
-	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
+func TestDataFrame(t *testing.T) {
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			plan := tc.DataFrame.LogicalPlan()
 
-	r := engine.NewReadOperation(table)
-	c := engine.NewColumnIndexExpr(1)
-	p := engine.NewProjectionOperation(r, []engine.Expr{c})
+			t.Run("serialize", func(t *testing.T) {
+				runTestSerialize(t, tc.Name, plan, tc.Catalog)
+			})
 
-	runTestSerialize(
-		t,
-		name,
-		p,
-		&catalog,
-	)
+			t.Run("roundtrip", func(t *testing.T) {
+				runTestRoundTrip(t, tc.Name, plan, tc.Catalog)
+			})
 
-	runTestRoundTrip(t, name, p, &catalog)
-}
-
-func TestReadFilterProject(t *testing.T) {
-	name := "read_filter_project"
-	catalog := testCatalog{}
-	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
-
-	r := engine.NewReadOperation(table)
-	c := engine.NewColumnIndexExpr(1)
-	s := engine.NewSelectionOperation(r, c)
-	p := engine.NewProjectionOperation(s, []engine.Expr{c})
-
-	runTestSerialize(
-		t,
-		name,
-		p,
-		&catalog,
-	)
-
-	runTestRoundTrip(t, name, p, &catalog)
-}
-
-func TestReadFilter(t *testing.T) {
-	name := "read_filter"
-	catalog := testCatalog{}
-	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
-
-	r := engine.NewReadOperation(table)
-	c := engine.NewColumnIndexExpr(1)
-	p := engine.NewSelectionOperation(r, c)
-
-	runTestSerialize(
-		t,
-		name,
-		p,
-		&catalog,
-	)
-
-	runTestRoundTrip(t, name, p, &catalog)
+		})
+	}
+	mem.AssertSize(t, 0)
 }
 
 func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {
