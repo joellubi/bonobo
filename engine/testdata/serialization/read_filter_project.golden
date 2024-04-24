@@ -1,65 +1,113 @@
-Proto[Unbound]:
-input schema required to serialize Column expr: engine: attempted to determine schema of table that has not been bound to a catalog yet
+Unbound Proto:
+{
+ "project": {
+  "input": {
+   "filter": {
+    "input": {
+     "read": {
+      "named_table": {
+       "names": [
+        "test_db",
+        "main",
+        "table1"
+       ]
+      }
+     }
+    },
+    "condition": {
+     "selection": {
+      "direct_reference": {
+       "struct_field": {
+        "field": 1
+       }
+      }
+     }
+    }
+   }
+  },
+  "expressions": [
+   {
+    "selection": {
+     "direct_reference": {
+      "struct_field": {
+       "field": 1
+      }
+     }
+    }
+   }
+  ]
+ }
+}
 
-Root Schema:
+Bound Root Schema:
 schema:
   fields: 1
     - col2: type=utf8
 
-Proto[Bound]:
-project: {
-  input: {
-    filter: {
-      input: {
-        read: {
-          base_schema: {
-            names: "col1"
-            names: "col2"
-            names: "col3"
-            struct: {
-              types: {
-                bool: {
-                  nullability: NULLABILITY_REQUIRED
-                }
-              }
-              types: {
-                string: {
-                  nullability: NULLABILITY_REQUIRED
-                }
-              }
-              types: {
-                i64: {
-                  nullability: NULLABILITY_REQUIRED
-                }
-              }
-              nullability: NULLABILITY_REQUIRED
-            }
+Bound Proto:
+{
+ "project": {
+  "input": {
+   "filter": {
+    "input": {
+     "read": {
+      "base_schema": {
+       "names": [
+        "col1",
+        "col2",
+        "col3"
+       ],
+       "struct": {
+        "types": [
+         {
+          "bool": {
+           "nullability": "NULLABILITY_REQUIRED"
           }
-          named_table: {
-            names: "test_db"
-            names: "main"
-            names: "table1"
+         },
+         {
+          "string": {
+           "nullability": "NULLABILITY_REQUIRED"
           }
-        }
+         },
+         {
+          "i64": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         }
+        ],
+        "nullability": "NULLABILITY_REQUIRED"
+       }
+      },
+      "named_table": {
+       "names": [
+        "test_db",
+        "main",
+        "table1"
+       ]
       }
-      condition: {
-        selection: {
-          direct_reference: {
-            struct_field: {
-              field: 1
-            }
-          }
-        }
+     }
+    },
+    "condition": {
+     "selection": {
+      "direct_reference": {
+       "struct_field": {
+        "field": 1
+       }
       }
+     }
     }
-  }
-  expressions: {
-    selection: {
-      direct_reference: {
-        struct_field: {
-          field: 1
-        }
+   }
+  },
+  "expressions": [
+   {
+    "selection": {
+     "direct_reference": {
+      "struct_field": {
+       "field": 1
       }
+     }
     }
-  }
+   }
+  ]
+ }
 }

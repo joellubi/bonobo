@@ -12,7 +12,6 @@ import (
 	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var update = flag.Bool("update", false, "update golden files")
@@ -46,6 +45,7 @@ func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 var _ engine.Catalog = (*testCatalog)(nil)
 
 func TestSimpleRead(t *testing.T) {
+	name := "simple_read"
 	catalog := testCatalog{}
 	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
 
@@ -53,68 +53,76 @@ func TestSimpleRead(t *testing.T) {
 
 	runTestSerialize(
 		t,
-		"simple_read",
+		name,
 		p,
 		&catalog,
 	)
+
+	runTestRoundTrip(t, name, p, &catalog)
 }
 
 func TestReadProject(t *testing.T) {
+	name := "read_project"
 	catalog := testCatalog{}
 	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
 
 	r := engine.NewReadOperation(table)
-	c := engine.NewColumnExpr("col2")
+	c := engine.NewColumnIndexExpr(1)
 	p := engine.NewProjectionOperation(r, []engine.Expr{c})
 
 	runTestSerialize(
 		t,
-		"read_project",
+		name,
 		p,
 		&catalog,
 	)
+
+	runTestRoundTrip(t, name, p, &catalog)
 }
 
 func TestReadFilterProject(t *testing.T) {
+	name := "read_filter_project"
 	catalog := testCatalog{}
 	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
 
 	r := engine.NewReadOperation(table)
-	c := engine.NewColumnExpr("col2")
+	c := engine.NewColumnIndexExpr(1)
 	s := engine.NewSelectionOperation(r, c)
 	p := engine.NewProjectionOperation(s, []engine.Expr{c})
 
 	runTestSerialize(
 		t,
-		"read_filter_project",
+		name,
 		p,
 		&catalog,
 	)
+
+	runTestRoundTrip(t, name, p, &catalog)
 }
 
 func TestReadFilter(t *testing.T) {
+	name := "read_filter"
 	catalog := testCatalog{}
 	table := engine.NewNamedTable([]string{"test_db", "main", "table1"}, nil)
 
 	r := engine.NewReadOperation(table)
-	c := engine.NewColumnExpr("col2")
-	s := engine.NewSelectionOperation(r, c)
+	c := engine.NewColumnIndexExpr(1)
+	p := engine.NewSelectionOperation(r, c)
 
 	runTestSerialize(
 		t,
-		"read_filter",
-		s,
+		name,
+		p,
 		&catalog,
 	)
+
+	runTestRoundTrip(t, name, p, &catalog)
 }
 
 func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {
-	var unboundRelText string
-	unboundRel, err := plan.ToProto()
-	if err == nil {
-		unboundRelText = prototext.MarshalOptions{Multiline: true}.Format(unboundRel)
-	} else {
-		unboundRelText = err.Error()
+	unboundRelText, err := engine.FormatPlan(plan)
+	if err != nil {
+		unboundRelText = fmt.Sprintf("Error %s", err.Error())
 	}
 
 	engine.SetCatalogForPlan(plan, catalog)
@@ -122,17 +130,14 @@ func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engin
 	planSchema, err := plan.Schema()
 	require.NoError(t, err)
 
-	var boundRelText string
-	boundRel, err := plan.ToProto()
-	if err == nil {
-		boundRelText = prototext.MarshalOptions{Multiline: true}.Format(boundRel)
-	} else {
-		boundRelText = err.Error()
+	boundRelText, err := engine.FormatPlan(plan)
+	if err != nil {
+		boundRelText = fmt.Sprintf("Error: %s", err.Error())
 	}
 
 	actual := []byte(
 		fmt.Sprintf(
-			"Proto[Unbound]:\n%s\n\nRoot Schema:\n%s\n\nProto[Bound]:\n%s",
+			"Unbound Proto:\n%s\n\nBound Root Schema:\n%s\n\nBound Proto:\n%s",
 			unboundRelText,
 			planSchema,
 			boundRelText,
@@ -155,4 +160,22 @@ func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engin
 	if !bytes.Equal(actual, expected) {
 		t.Errorf("formatted output does not match\nexpected: %s\nfound: %s", expected, actual)
 	}
+}
+
+func runTestRoundTrip(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {
+	engine.SetCatalogForPlan(plan, catalog)
+
+	rel, err := plan.ToProto()
+	require.NoError(t, err)
+
+	planOut, err := engine.FromProto(rel)
+	require.NoError(t, err)
+
+	planText, err := engine.FormatPlan(plan)
+	require.NoError(t, err)
+
+	planOutText, err := engine.FormatPlan(planOut)
+	require.NoError(t, err)
+
+	require.Equal(t, planText, planOutText)
 }

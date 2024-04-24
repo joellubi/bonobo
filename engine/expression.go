@@ -92,4 +92,44 @@ func (expr *Column) String() string {
 	return fmt.Sprintf("#%s", expr.name)
 }
 
+func NewColumnIndexExpr(index int) *ColumnIndex {
+	return &ColumnIndex{index: index}
+}
+
+type ColumnIndex struct {
+	index int
+}
+
+func (expr *ColumnIndex) ToProto(input Plan) (*proto.Expression, error) {
+	return &proto.Expression{
+		RexType: &proto.Expression_Selection{
+			Selection: &proto.Expression_FieldReference{
+				ReferenceType: &proto.Expression_FieldReference_DirectReference{
+					DirectReference: &proto.Expression_ReferenceSegment{
+						ReferenceType: &proto.Expression_ReferenceSegment_StructField_{
+							StructField: &proto.Expression_ReferenceSegment_StructField{
+								Field: int32(expr.index),
+							},
+						},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+func (expr *ColumnIndex) Field(input Plan) (arrow.Field, error) {
+	inputSchema, err := input.Schema()
+	if err != nil {
+		return arrow.Field{}, err
+	}
+
+	return inputSchema.Field(expr.index), nil
+}
+
+func (expr *ColumnIndex) String() string {
+	return fmt.Sprintf("#%d", expr.index)
+}
+
 var _ Expr = (*Column)(nil)
+var _ Expr = (*ColumnIndex)(nil)

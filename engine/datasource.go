@@ -62,7 +62,9 @@ func (t *namedTable) ToProto() (*proto.Rel, error) {
 	// serialize the plan and just omit the schema
 	schema, err := t.Schema()
 	if err == nil {
-		baseSchema = schemaToNamedStruct(schema)
+		if baseSchema, err = schemaToNamedStruct(schema); err != nil {
+			return nil, err
+		}
 	}
 
 	return &proto.Rel{
@@ -79,4 +81,17 @@ func (t *namedTable) ToProto() (*proto.Rel, error) {
 	}, nil
 }
 
+func NewAnonymousCatalog(schema *arrow.Schema) *anonymousCatalog {
+	return &anonymousCatalog{schema: schema}
+}
+
+type anonymousCatalog struct {
+	schema *arrow.Schema
+}
+
+func (c *anonymousCatalog) Schema(identifier []string) (*arrow.Schema, error) {
+	return c.schema, nil
+}
+
 var _ NamedTable = (*namedTable)(nil)
+var _ Catalog = (*anonymousCatalog)(nil)
