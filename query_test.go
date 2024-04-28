@@ -2,7 +2,6 @@ package query_test
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/backdeck/backdeck/query/df"
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/stretchr/testify/require"
@@ -47,7 +45,7 @@ func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 
 var _ engine.Catalog = (*testCatalog)(nil)
 
-var mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+// var mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
 var testcases = []struct {
 	Name      string
 	DataFrame df.DataFrame
@@ -55,7 +53,7 @@ var testcases = []struct {
 }{
 	{
 		Name: "simple_read",
-		DataFrame: df.QueryContext(context.TODO(), mem).
+		DataFrame: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -66,7 +64,7 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_project",
-		DataFrame: df.QueryContext(context.TODO(), mem).
+		DataFrame: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -78,7 +76,7 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_filter_project",
-		DataFrame: df.QueryContext(context.TODO(), mem).
+		DataFrame: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -91,7 +89,7 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_filter",
-		DataFrame: df.QueryContext(context.TODO(), mem).
+		DataFrame: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -118,7 +116,7 @@ func TestDataFrame(t *testing.T) {
 
 		})
 	}
-	mem.AssertSize(t, 0)
+	// mem.AssertSize(t, 0)
 }
 
 func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {

@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testcases = []struct {
+var exprParserTestcases = []struct {
 	Name     string
 	Input    []token.Token
-	Expected []parse.SqlExpr
+	Expected parse.SqlExpr
 }{
 	{
 		Name: "1 + 2 * 3",
@@ -22,7 +22,7 @@ var testcases = []struct {
 			token.MUL,
 			token.Literal(token.INT, "3"),
 		},
-		Expected: []parse.SqlExpr{&parse.SqlBinaryExpr{
+		Expected: &parse.SqlBinaryExpr{
 			Left: &parse.SqlIntLiteral{Value: 1},
 			Op:   "+",
 			Right: &parse.SqlBinaryExpr{
@@ -30,7 +30,7 @@ var testcases = []struct {
 				Op:    "*",
 				Right: &parse.SqlIntLiteral{Value: 3},
 			},
-		}},
+		},
 	},
 	{
 		Name: "1 * 2 + 3",
@@ -41,7 +41,7 @@ var testcases = []struct {
 			token.ADD,
 			token.Literal(token.INT, "3"),
 		},
-		Expected: []parse.SqlExpr{&parse.SqlBinaryExpr{
+		Expected: &parse.SqlBinaryExpr{
 			Left: &parse.SqlBinaryExpr{
 				Left:  &parse.SqlIntLiteral{Value: 1},
 				Op:    "*",
@@ -49,7 +49,7 @@ var testcases = []struct {
 			},
 			Op:    "+",
 			Right: &parse.SqlIntLiteral{Value: 3},
-		}},
+		},
 	},
 	{
 		Name: "SELECT 1 * 2 + 3, 4 / 5",
@@ -65,7 +65,7 @@ var testcases = []struct {
 			token.QUO,
 			token.Literal(token.INT, "5"),
 		},
-		Expected: []parse.SqlExpr{parse.SqlSelectRelation(
+		Expected: parse.SqlSelectRelation(
 			[]parse.SqlExpr{
 				&parse.SqlBinaryExpr{
 					Left: &parse.SqlBinaryExpr{
@@ -82,7 +82,7 @@ var testcases = []struct {
 					Right: &parse.SqlIntLiteral{Value: 5},
 				},
 			},
-		)},
+		),
 	},
 	{
 		Name: "SELECT a + b, c FROM d",
@@ -96,57 +96,144 @@ var testcases = []struct {
 			token.FROM,
 			token.Literal(token.IDENT, "d"),
 		},
-		Expected: []parse.SqlExpr{
-			parse.SqlSelectRelation(
+		// Only the SELECT is consumed by the expression parser
+		Expected: parse.SqlSelectRelation(
+			[]parse.SqlExpr{
+				&parse.SqlBinaryExpr{
+					Left:  &parse.SqlIdentifier{ID: "a"},
+					Op:    "+",
+					Right: &parse.SqlIdentifier{ID: "b"},
+				},
+				&parse.SqlIdentifier{ID: "c"},
+			},
+		),
+	},
+	// {
+	// 	Name: "SELECT a FROM (SELECT a FROM x) AS x",
+	// 	Input: []token.Token{
+	// 		token.SELECT,
+	// 		token.Literal(token.IDENT, "a"),
+	// 		token.FROM,
+	// 		token.LPAREN,
+	// 		token.SELECT,
+	// 		token.Literal(token.IDENT, "a"),
+	// 		token.FROM,
+	// 		token.Literal(token.IDENT, "x"),
+	// 		token.RPAREN,
+	// 		token.AS,
+	// 		token.Literal(token.IDENT, "x"),
+	// 	},
+	// 	Expected: []parse.SqlExpr{
+	// 		parse.SqlSelectRelation(
+	// 			[]parse.SqlExpr{
+	// 				&parse.SqlIdentifier{ID: "a"},
+	// 			},
+	// 		),
+	// 		parse.SqlFromRelation(parse.SqlSelectRelation()),
+	// 	},
+	// },
+}
+
+func TestExprParser(t *testing.T) {
+	for _, tc := range exprParserTestcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			parser := parse.NewExprParser(tc.Input)
+
+			output, err := parser.Parse(0)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.Expected, output)
+		})
+	}
+}
+
+var queryParserTestcases = []struct {
+	Name     string
+	Input    []token.Token
+	Expected *parse.SqlQuery
+	Error    bool
+}{
+	{
+		Name: "SELECT a + b",
+		Input: []token.Token{
+			token.SELECT,
+			token.Literal(token.IDENT, "a"),
+			token.ADD,
+			token.Literal(token.IDENT, "b"),
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
 					&parse.SqlBinaryExpr{
 						Left:  &parse.SqlIdentifier{ID: "a"},
 						Op:    "+",
 						Right: &parse.SqlIdentifier{ID: "b"},
 					},
-					&parse.SqlIdentifier{ID: "c"},
 				},
 			),
-			parse.SqlFromRelation(&parse.SqlIdentifier{ID: "d"}),
 		},
+	},
+	{
+		Name: "SELECT a + b FROM c",
+		Input: []token.Token{
+			token.SELECT,
+			token.Literal(token.IDENT, "a"),
+			token.ADD,
+			token.Literal(token.IDENT, "b"),
+			token.FROM,
+			token.Literal(token.IDENT, "c"),
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlBinaryExpr{
+						Left:  &parse.SqlIdentifier{ID: "a"},
+						Op:    "+",
+						Right: &parse.SqlIdentifier{ID: "b"},
+					},
+				},
+			),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
+		},
+	},
+	{
+		Name: "a + b FROM c",
+		Input: []token.Token{
+			token.Literal(token.IDENT, "a"),
+			token.ADD,
+			token.Literal(token.IDENT, "b"),
+			token.FROM,
+			token.Literal(token.IDENT, "c"),
+		},
+		Error: true,
+	},
+	{
+		Name: "SELECT a FROM b + c",
+		Input: []token.Token{
+			token.SELECT,
+			token.Literal(token.IDENT, "a"),
+			token.FROM,
+			token.Literal(token.IDENT, "b"),
+			token.ADD,
+			token.Literal(token.IDENT, "c"),
+		},
+		Error: true,
 	},
 }
 
-func TestParser(t *testing.T) {
-	for _, tc := range testcases {
-		// // TEMP skip
-		// if tc.Name == "SELECT a + b, c FROM d" {
-		// 	continue
-		// }
-
+func TestQueryParser(t *testing.T) {
+	var parser parse.QueryParser
+	for _, tc := range queryParserTestcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			parser := parse.NewParser(tc.Input)
-			exprs := make([]parse.SqlExpr, 0)
-			for {
-				output, err := parser.Parse(0)
-				if err == parse.ErrEndOfTokenStream {
-					break
-				}
-				require.NoError(t, err)
+			query, err := parser.Parse(tc.Input)
 
-				exprs = append(exprs, output)
+			if tc.Error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.Expected, exprs)
+			require.Equal(t, tc.Expected, query)
 		})
 	}
 }
-
-// func TestParser2(t *testing.T) {
-// 	tc := testcases[2]
-
-// 	parser := parse.NewParser(tc.Input)
-// 	output, err := parser.Parse(0)
-// 	require.NoError(t, err)
-
-// 	output, err = parser.Parse(0)
-// 	require.NoError(t, err)
-
-// 	require.Equal(t, tc.Expected, output)
-
-// }

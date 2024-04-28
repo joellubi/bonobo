@@ -25,6 +25,7 @@ func (ts *TokenStream) Next() (token.Token, bool) {
 	return tok, true
 }
 
+// TODO: TokenStream handle merging tokens if needed during call to peek()
 func (ts *TokenStream) Peek() (token.Token, bool) {
 	if ts.cur >= len(ts.tokens) {
 		return token.ILLEGAL, false
@@ -34,23 +35,60 @@ func (ts *TokenStream) Peek() (token.Token, bool) {
 	return tok, true
 }
 
+type SqlNode interface {
+	Children() []SqlNode
+}
+
 type Parser interface {
+	Parse(tokens []token.Token) (*SqlQuery, error)
+}
+
+type PrattParser interface {
 	Parse(precedence int) (SqlExpr, error)
 	NextPrecedence() int
 	ParsePrefix() (SqlExpr, error)
 	ParseInfix(left SqlExpr, precedence int) (SqlExpr, error)
 }
 
-func NewParser(tokens []token.Token) Parser {
-	return &parser{tokens: TokenStream{tokens: tokens}}
+type QueryParser struct {
+	bldr SqlQueryBuilder
 }
 
-type parser struct {
+// Parse implements QueryParser.
+func (p *QueryParser) Parse(tokens []token.Token) (*SqlQuery, error) {
+	parser := NewExprParser(tokens)
+	for {
+		block, err := parser.Parse(token.HighestPrec)
+		if err == ErrEndOfTokenStream {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		switch b := block.(type) {
+		case *sqlSelectRelation:
+			p.bldr.Select(b)
+		case *sqlFromRelation:
+			p.bldr.From(b)
+		default:
+			return nil, fmt.Errorf("parse: expected valid sql relation, found %[1]T: %[1]s", b)
+		}
+	}
+
+	return p.bldr.Query(), nil
+}
+
+func NewExprParser(tokens []token.Token) PrattParser {
+	return &exprParser{tokens: TokenStream{tokens: tokens}}
+}
+
+type exprParser struct {
 	tokens TokenStream
 }
 
 // Parse implements Parser.
-func (p *parser) Parse(precedence int) (SqlExpr, error) {
+func (p *exprParser) Parse(precedence int) (SqlExpr, error) {
 	expr, err := p.ParsePrefix()
 	if err != nil {
 		return nil, err
@@ -65,7 +103,7 @@ func (p *parser) Parse(precedence int) (SqlExpr, error) {
 }
 
 // NextPrecedence implements Parser.
-func (p *parser) NextPrecedence() int {
+func (p *exprParser) NextPrecedence() int {
 	tok, more := p.tokens.Peek()
 	if !more {
 		return token.LowestPrec
@@ -75,7 +113,7 @@ func (p *parser) NextPrecedence() int {
 }
 
 // ParsePrefix implements Parser.
-func (p *parser) ParsePrefix() (SqlExpr, error) {
+func (p *exprParser) ParsePrefix() (SqlExpr, error) {
 	tok, more := p.tokens.Next()
 	if !more {
 		return nil, ErrEndOfTokenStream
@@ -100,7 +138,7 @@ func (p *parser) ParsePrefix() (SqlExpr, error) {
 }
 
 // ParseInfix implements Parser.
-func (p *parser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
+func (p *exprParser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
 	tok, more := p.tokens.Peek()
 	if !more {
 		return nil, ErrEndOfTokenStream
@@ -122,7 +160,7 @@ func (p *parser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
 	}, nil
 }
 
-func (p *parser) parseSelect() (*sqlSelectRelation, error) {
+func (p *exprParser) parseSelect() (*sqlSelectRelation, error) {
 	projection, err := p.parseExprList()
 	if err != nil {
 		return nil, err
@@ -131,7 +169,7 @@ func (p *parser) parseSelect() (*sqlSelectRelation, error) {
 	return SqlSelectRelation(projection), nil
 }
 
-func (p *parser) parseFrom() (*sqlFromRelation, error) {
+func (p *exprParser) parseFrom() (*sqlFromRelation, error) {
 	table, err := p.parseTableExpr()
 	if err != nil {
 		return nil, err
@@ -140,7 +178,7 @@ func (p *parser) parseFrom() (*sqlFromRelation, error) {
 	return SqlFromRelation(table), nil
 }
 
-func (p *parser) parseTableExpr() (SqlExpr, error) {
+func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 	tok, more := p.tokens.Peek()
 	if !more {
 		return nil, ErrEndOfTokenStream
@@ -148,7 +186,7 @@ func (p *parser) parseTableExpr() (SqlExpr, error) {
 
 	switch tok.ID() {
 	case token.IDENT:
-		return p.parseExpr()
+		return p.parseTableIdentifier()
 	case token.LPAREN:
 		return nil, fmt.Errorf("unimplemented: FROM subquery")
 	}
@@ -156,7 +194,18 @@ func (p *parser) parseTableExpr() (SqlExpr, error) {
 	return nil, fmt.Errorf("parse: unexpected token: %s", tok)
 }
 
-func (p *parser) parseExprList() ([]SqlExpr, error) {
+func (p *exprParser) parseTableIdentifier() (SqlExpr, error) {
+	tok, err := p.expectToken(token.IDENT)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: expect PERIOD to check for namespaced tables
+
+	return &SqlIdentifier{ID: tok.Value()}, nil
+}
+
+func (p *exprParser) parseExprList() ([]SqlExpr, error) {
 	exprs := make([]SqlExpr, 0)
 	expr, err := p.parseExpr()
 	if err != nil {
@@ -180,8 +229,37 @@ func (p *parser) parseExprList() ([]SqlExpr, error) {
 	return exprs, nil
 }
 
-func (p *parser) parseExpr() (SqlExpr, error) {
+func (p *exprParser) parseExpr() (SqlExpr, error) {
 	return p.Parse(0)
 }
 
-var _ Parser = (*parser)(nil)
+// func (p *exprParser) consumeToken(tok token.Token) bool {
+// 	t, more := p.tokens.Peek()
+// 	if !more {
+// 		return false
+// 	}
+
+// 	if t != tok {
+// 		return false
+// 	}
+
+// 	p.tokens.Next()
+// 	return true
+// }
+
+func (p *exprParser) expectToken(tok token.Token) (token.Token, error) {
+	t, more := p.tokens.Peek()
+	if !more {
+		return t, ErrEndOfTokenStream
+	}
+
+	if t.ID() != tok.ID() {
+		return t, fmt.Errorf("parse: expected %s token but found %s", tok, t)
+	}
+
+	p.tokens.Next()
+	return t, nil
+}
+
+var _ PrattParser = (*exprParser)(nil)
+var _ Parser = (*QueryParser)(nil)

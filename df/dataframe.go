@@ -1,10 +1,7 @@
 package df
 
 import (
-	"context"
-
 	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/backdeck/backdeck/query/engine"
 )
 
@@ -16,16 +13,13 @@ type DataFrame interface {
 	LogicalPlan() engine.Plan
 }
 
-func QueryContext(ctx context.Context, alloc memory.Allocator) *executionContext {
-	return &executionContext{
-		ctx:   ctx,
-		alloc: alloc,
-	}
+func QueryContext() *executionContext {
+	return &executionContext{}
 }
 
 type executionContext struct {
-	ctx   context.Context
-	alloc memory.Allocator
+	// ctx   context.Context
+	// alloc memory.Allocator
 }
 
 func (execCtx *executionContext) Read(table engine.Table) DataFrame {
