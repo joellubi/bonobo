@@ -1,42 +1,49 @@
 Unbound Proto:
 {
- "project": {
-  "input": {
-   "filter": {
-    "input": {
-     "read": {
-      "named_table": {
-       "names": [
-        "test_db",
-        "main",
-        "table1"
-       ]
-      }
-     }
-    },
-    "condition": {
-     "selection": {
-      "direct_reference": {
-       "struct_field": {
-        "field": 1
+ "version": {},
+ "relations": [
+  {
+   "rel": {
+    "project": {
+     "input": {
+      "filter": {
+       "input": {
+        "read": {
+         "named_table": {
+          "names": [
+           "test_db",
+           "main",
+           "table1"
+          ]
+         }
+        }
+       },
+       "condition": {
+        "selection": {
+         "direct_reference": {
+          "struct_field": {
+           "field": 1
+          }
+         }
+        }
        }
       }
-     }
-    }
-   }
-  },
-  "expressions": [
-   {
-    "selection": {
-     "direct_reference": {
-      "struct_field": {
-       "field": 1
+     },
+     "expressions": [
+      {
+       "selection": {
+        "direct_reference": {
+         "struct_field": {
+          "field": 1
+         }
+        }
+       }
       }
-     }
+     ]
     }
    }
-  ]
- }
+  }
+ ]
 }
 
 Bound Root Schema:
@@ -46,68 +53,75 @@ schema:
 
 Bound Proto:
 {
- "project": {
-  "input": {
-   "filter": {
-    "input": {
-     "read": {
-      "base_schema": {
-       "names": [
-        "col1",
-        "col2",
-        "col3"
-       ],
-       "struct": {
-        "types": [
-         {
-          "bool": {
+ "version": {},
+ "relations": [
+  {
+   "rel": {
+    "project": {
+     "input": {
+      "filter": {
+       "input": {
+        "read": {
+         "base_schema": {
+          "names": [
+           "col1",
+           "col2",
+           "col3"
+          ],
+          "struct": {
+           "types": [
+            {
+             "bool": {
+              "nullability": "NULLABILITY_REQUIRED"
+             }
+            },
+            {
+             "string": {
+              "nullability": "NULLABILITY_REQUIRED"
+             }
+            },
+            {
+             "i64": {
+              "nullability": "NULLABILITY_REQUIRED"
+             }
+            }
+           ],
            "nullability": "NULLABILITY_REQUIRED"
           }
          },
-         {
-          "string": {
-           "nullability": "NULLABILITY_REQUIRED"
-          }
-         },
-         {
-          "i64": {
-           "nullability": "NULLABILITY_REQUIRED"
+         "named_table": {
+          "names": [
+           "test_db",
+           "main",
+           "table1"
+          ]
+         }
+        }
+       },
+       "condition": {
+        "selection": {
+         "direct_reference": {
+          "struct_field": {
+           "field": 1
           }
          }
-        ],
-        "nullability": "NULLABILITY_REQUIRED"
-       }
-      },
-      "named_table": {
-       "names": [
-        "test_db",
-        "main",
-        "table1"
-       ]
-      }
-     }
-    },
-    "condition": {
-     "selection": {
-      "direct_reference": {
-       "struct_field": {
-        "field": 1
+        }
        }
       }
-     }
-    }
-   }
-  },
-  "expressions": [
-   {
-    "selection": {
-     "direct_reference": {
-      "struct_field": {
-       "field": 1
+     },
+     "expressions": [
+      {
+       "selection": {
+        "direct_reference": {
+         "struct_field": {
+          "field": 1
+         }
+        }
+       }
       }
-     }
+     ]
     }
    }
-  ]
- }
+  }
+ ]
 }

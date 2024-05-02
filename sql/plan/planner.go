@@ -11,16 +11,31 @@ func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 	switch e := expr.(type) {
 	case *parse.SqlIdentifier:
 		return engine.NewColumnExpr(e.ID), nil
+	case *parse.SqlIntLiteral:
+		return engine.NewLiteralExpr(e.Value), nil
+	case *parse.SqlBinaryExpr:
+		left, err := CreateLogicalExpr(e.Left)
+		if err != nil {
+			return nil, err
+		}
+		right, err := CreateLogicalExpr(e.Right)
+		if err != nil {
+			return nil, err
+		}
+
+		f, err := engine.NewFunctionWithArgs(e.Op, left, right)
+		if err != nil {
+			return nil, err
+		}
+
+		return f, nil
 	default:
 		return nil, fmt.Errorf("plan: unrecognized SqlExpr type: %T", e)
 	}
 }
 
-func CreateLogicalPlan(query *parse.SqlQuery) (engine.Plan, error) {
-	var (
-		plan engine.Plan
-		// err  error
-	)
+func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
+	var plan engine.Relation
 
 	if query.Read != nil {
 		switch t := query.Read.Table.(type) {
@@ -45,6 +60,6 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Plan, error) {
 		}
 		plan = engine.NewProjectionOperation(plan, exprs)
 	}
-	// plan := engine.NewReadOperation(e)
+
 	return plan, nil
 }

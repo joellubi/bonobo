@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/backdeck/backdeck/query/substrait"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -13,7 +14,7 @@ var (
 
 type Table interface {
 	Schema() (*arrow.Schema, error)
-	ToProto() (*proto.Rel, error)
+	ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error)
 }
 
 type Catalog interface {
@@ -55,7 +56,7 @@ func (t *namedTable) Schema() (*arrow.Schema, error) {
 	return t.catalog.Schema(t.identifier)
 }
 
-func (t *namedTable) ToProto() (*proto.Rel, error) {
+func (t *namedTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error) {
 	var baseSchema *proto.NamedStruct
 
 	// If the schema cannot be determined, we can still

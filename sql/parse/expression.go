@@ -1,6 +1,9 @@
 package parse
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type SqlExpr interface {
 	fmt.Stringer
@@ -59,7 +62,30 @@ func (s *SqlBinaryExpr) String() string {
 	return fmt.Sprintf("%s %s %s", s.Left, s.Op, s.Right)
 }
 
+type SqlFunctionExpr struct {
+	Name string
+	Args []SqlExpr
+}
+
+// Children implements SqlExpr.
+func (e *SqlFunctionExpr) Children() []SqlNode {
+	children := make([]SqlNode, len(e.Args))
+	for i, expr := range e.Args {
+		children[i] = expr
+	}
+	return children
+}
+
+func (e *SqlFunctionExpr) String() string {
+	args := make([]string, len(e.Args))
+	for i, arg := range e.Args {
+		args[i] = arg.String()
+	}
+	return fmt.Sprintf("%s(%s)", e.Name, strings.Join(args, ", "))
+}
+
 var _ SqlExpr = (*SqlIdentifier)(nil)
 var _ SqlExpr = (*SqlStringLiteral)(nil)
 var _ SqlExpr = (*SqlIntLiteral)(nil)
 var _ SqlExpr = (*SqlBinaryExpr)(nil)
+var _ SqlExpr = (*SqlFunctionExpr)(nil)

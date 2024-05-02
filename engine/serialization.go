@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/backdeck/backdeck/query/substrait"
 	"github.com/substrait-io/substrait-go/proto"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func FormatPlanText(plan Plan) string {
+func FormatPlanText(plan Relation) string {
 	var (
 		bldr   strings.Builder
 		indent int
@@ -19,7 +20,7 @@ func FormatPlanText(plan Plan) string {
 	return bldr.String()
 }
 
-func formatPlan(plan Plan, bldr *strings.Builder, indent int) {
+func formatPlan(plan Relation, bldr *strings.Builder, indent int) {
 	if indent > 0 {
 		bldr.WriteString("\n")
 	}
@@ -34,8 +35,8 @@ func formatPlan(plan Plan, bldr *strings.Builder, indent int) {
 	}
 }
 
-func FormatPlan(plan Plan) (string, error) {
-	rel, err := plan.ToProto()
+func FormatPlan(plan *Plan) (string, error) {
+	planProto, err := plan.ToProto()
 	if err != nil {
 		return "", err
 	}
@@ -45,7 +46,7 @@ func FormatPlan(plan Plan) (string, error) {
 		// EmitUnpopulated: true,
 	}
 
-	data, err := marshaller.Marshal(rel)
+	data, err := marshaller.Marshal(planProto)
 	if err != nil {
 		return "", err
 	}
@@ -225,27 +226,59 @@ func protoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 	}
 }
 
-func FromProto(rel *proto.Rel) (Plan, error) {
+func FromProto(plan *proto.Plan) (*Plan, error) {
+	var err error
+
+	extensions, err := substrait.NewExtensionRegistryFromProto(plan)
+	if err != nil {
+		return nil, err
+	}
+
+	bldr := planBuilder{extensions: extensions}
+
+	relations := make([]Relation, len(plan.GetRelations()))
+	for i, planRel := range plan.GetRelations() {
+		switch t := planRel.GetRelType().(type) {
+		case *proto.PlanRel_Root:
+			return nil, fmt.Errorf("unimplemented: PlanRel_Root")
+		case *proto.PlanRel_Rel:
+			relations[i], err = bldr.Rel(t.Rel)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf("unrecognized proto.PlanRel type: %T", t)
+		}
+	}
+
+	return NewPlan(relations...), nil
+}
+
+type planBuilder struct {
+	extensions substrait.ExtensionRegistry
+}
+
+func (bldr *planBuilder) Rel(rel *proto.Rel) (Relation, error) {
 	switch r := rel.GetRelType().(type) {
 	case *proto.Rel_Read:
-		return FromProtoRead(r.Read)
+		return bldr.Read(r.Read)
 	case *proto.Rel_Project:
-		return FromProtoProject(r.Project)
+		return bldr.Project(r.Project)
 	case *proto.Rel_Filter:
-		return FromProtoFilter(r.Filter)
+		return bldr.Filter(r.Filter)
 	default:
 		return nil, fmt.Errorf("cannot construct Plan from proto: unrecognized rel type: %T", r)
 	}
 }
 
-func FromProtoExpr(expr *proto.Expression) (Expr, error) {
+func (bldr *planBuilder) Expr(expr *proto.Expression) (Expr, error) {
 	switch e := expr.GetRexType().(type) {
 	case *proto.Expression_Literal_:
-		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_Literal") // TODO
+		return bldr.LiteralExpr(e.Literal)
 	case *proto.Expression_Selection:
-		return FromProtoFieldReferenceExpr(e.Selection)
+		return bldr.FieldReferenceExpr(e.Selection)
 	case *proto.Expression_ScalarFunction_:
-		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_ScalarFunction") // TODO
+		return bldr.ScalarFunctionExpr(e.ScalarFunction)
 	case *proto.Expression_WindowFunction_:
 		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_WindowFunction") // TODO
 	case *proto.Expression_IfThen_:
@@ -269,14 +302,80 @@ func FromProtoExpr(expr *proto.Expression) (Expr, error) {
 	}
 }
 
-func FromProtoFieldReferenceExpr(expr *proto.Expression_FieldReference) (Expr, error) {
+func (bldr *planBuilder) LiteralExpr(expr *proto.Expression_Literal) (Expr, error) {
+	switch e := expr.GetLiteralType().(type) {
+	case *proto.Expression_Literal_Boolean:
+		return NewLiteralExpr(e.Boolean), nil
+	case *proto.Expression_Literal_I8:
+		return NewLiteralExpr(e.I8), nil
+	case *proto.Expression_Literal_I16:
+		return NewLiteralExpr(e.I16), nil
+	case *proto.Expression_Literal_I32:
+		return NewLiteralExpr(e.I32), nil
+	case *proto.Expression_Literal_I64:
+		return NewLiteralExpr(e.I64), nil
+	case *proto.Expression_Literal_Fp32:
+		return NewLiteralExpr(e.Fp32), nil
+	case *proto.Expression_Literal_Fp64:
+		return NewLiteralExpr(e.Fp64), nil
+	case *proto.Expression_Literal_String_:
+		return NewLiteralExpr(e.String_), nil
+	default:
+		return nil, fmt.Errorf("unrecognized proto.Expression_Literal type: %T", e)
+	}
+}
+
+func (bldr *planBuilder) ScalarFunctionExpr(expr *proto.Expression_ScalarFunction) (Expr, error) {
+	// TODO: expr.Options
+
+	ext, uri, err := bldr.extensions.GetExtensionByReference(expr.GetFunctionReference())
+	if err != nil {
+		return nil, err
+	}
+
+	name, inputs, err := parseFunctionSignature(ext.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	output, _, err := arrowTypeForProtoType(expr.GetOutputType())
+	if err != nil {
+		return nil, err
+	}
+
+	args := make([]Expr, len(expr.Arguments))
+	for i, arg := range expr.Arguments {
+		args[i], err = bldr.FunctionArgumentExpr(arg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	impl := FunctionImplementation{URI: uri, Inputs: inputs, Output: output}
+	return NewFunctionWithImplAndArgs(name, impl, args...)
+}
+
+func (bldr *planBuilder) FunctionArgumentExpr(expr *proto.FunctionArgument) (Expr, error) {
+	switch e := expr.GetArgType().(type) {
+	case *proto.FunctionArgument_Enum:
+		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: FunctionArgument_Enum")
+	case *proto.FunctionArgument_Type:
+		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: FunctionArgument_Type")
+	case *proto.FunctionArgument_Value:
+		return bldr.Expr(e.Value)
+	default:
+		return nil, fmt.Errorf("unrecognized proto.FunctionArgument type: %T", e)
+	}
+}
+
+func (bldr *planBuilder) FieldReferenceExpr(expr *proto.Expression_FieldReference) (Expr, error) {
 	if expr.RootType != nil {
 		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_FieldReference.RootType")
 	}
 
 	switch e := expr.GetReferenceType().(type) {
 	case *proto.Expression_FieldReference_DirectReference:
-		return FromProtoReferenceSegmentExpr(e.DirectReference)
+		return bldr.ReferenceSegmentExpr(e.DirectReference)
 	case *proto.Expression_FieldReference_MaskedReference:
 		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_FieldReference_MaskedReference")
 	default:
@@ -284,7 +383,7 @@ func FromProtoFieldReferenceExpr(expr *proto.Expression_FieldReference) (Expr, e
 	}
 }
 
-func FromProtoReferenceSegmentExpr(expr *proto.Expression_ReferenceSegment) (Expr, error) {
+func (bldr *planBuilder) ReferenceSegmentExpr(expr *proto.Expression_ReferenceSegment) (Expr, error) {
 	switch e := expr.GetReferenceType().(type) {
 	case *proto.Expression_ReferenceSegment_ListElement_:
 		return nil, fmt.Errorf("failed to build Expr: FromProto not implemented: Expression_ReferenceSegment_ListElement")
@@ -300,7 +399,7 @@ func FromProtoReferenceSegmentExpr(expr *proto.Expression_ReferenceSegment) (Exp
 	}
 }
 
-func FromProtoRead(rel *proto.ReadRel) (*Read, error) {
+func (bldr *planBuilder) Read(rel *proto.ReadRel) (*Read, error) {
 	schema, err := namedStructToSchema(rel.GetBaseSchema())
 	if err != nil {
 		return nil, err
@@ -321,18 +420,18 @@ func FromProtoRead(rel *proto.ReadRel) (*Read, error) {
 	return NewReadOperation(table), nil
 }
 
-func FromProtoProject(rel *proto.ProjectRel) (*Projection, error) {
+func (bldr *planBuilder) Project(rel *proto.ProjectRel) (*Projection, error) {
 	var err error
 
 	exprs := make([]Expr, len(rel.GetExpressions()))
 	for i, expr := range rel.GetExpressions() {
-		exprs[i], err = FromProtoExpr(expr)
+		exprs[i], err = bldr.Expr(expr)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	input, err := FromProto(rel.GetInput())
+	input, err := bldr.Rel(rel.GetInput())
 	if err != nil {
 		return nil, err
 	}
@@ -340,15 +439,15 @@ func FromProtoProject(rel *proto.ProjectRel) (*Projection, error) {
 	return NewProjectionOperation(input, exprs), nil
 }
 
-func FromProtoFilter(rel *proto.FilterRel) (*Selection, error) {
+func (bldr *planBuilder) Filter(rel *proto.FilterRel) (*Selection, error) {
 	var err error
 
-	expr, err := FromProtoExpr(rel.GetCondition())
+	expr, err := bldr.Expr(rel.GetCondition())
 	if err != nil {
 		return nil, err
 	}
 
-	input, err := FromProto(rel.GetInput())
+	input, err := bldr.Rel(rel.GetInput())
 	if err != nil {
 		return nil, err
 	}

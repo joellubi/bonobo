@@ -13,7 +13,7 @@ import (
 var testcases = []struct {
 	Name     string
 	Input    *parse.SqlQuery
-	Expected engine.Plan
+	Expected engine.Relation
 }{
 	{
 		Name:  "named_table_read",
@@ -56,29 +56,29 @@ var testcases = []struct {
 			).
 			LogicalPlan(),
 	},
-	// {
-	// 	Name: "select_multiple_add_int_from_named_table",
-	// 	Input: &parse.SqlQuery{
-	// 		Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
-	// 		Projection: parse.SqlSelectRelation(
-	// 			[]parse.SqlExpr{
-	// 				&parse.SqlIdentifier{ID: "a"},
-	// 				&parse.SqlBinaryExpr{
-	// 					Left:  &parse.SqlIdentifier{ID: "b"},
-	// 					Op:    "+",
-	// 					Right: &parse.SqlIntLiteral{Value: 1},
-	// 				},
-	// 			},
-	// 		),
-	// 	},
-	// 	Expected: df.QueryContext().
-	// 		Read(engine.NewNamedTable([]string{"c"}, nil)).
-	// 		Select(
-	// 			engine.NewColumnExpr("a"),
-	// 			engine.NewColumnExpr("b"),
-	// 		).
-	// 		LogicalPlan(),
-	// },
+	{
+		Name: "select_multiple_add_int_from_named_table",
+		Input: &parse.SqlQuery{
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{ID: "a"},
+					&parse.SqlBinaryExpr{
+						Left:  &parse.SqlIdentifier{ID: "b"},
+						Op:    "+",
+						Right: &parse.SqlIntLiteral{Value: 1},
+					},
+				},
+			),
+		},
+		Expected: df.QueryContext().
+			Read(engine.NewNamedTable([]string{"c"}, nil)).
+			Select(
+				engine.NewColumnExpr("a"),
+				engine.Add(engine.NewColumnExpr("b"), engine.NewLiteralExpr(1)),
+			).
+			LogicalPlan(),
+	},
 }
 
 func TestPlanner(t *testing.T) {

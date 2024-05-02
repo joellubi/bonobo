@@ -10,7 +10,7 @@ type DataFrame interface {
 	Filter(expr engine.Expr) DataFrame
 
 	Schema() (*arrow.Schema, error)
-	LogicalPlan() engine.Plan
+	LogicalPlan() engine.Relation
 }
 
 func QueryContext() *executionContext {
@@ -29,7 +29,7 @@ func (execCtx *executionContext) Read(table engine.Table) DataFrame {
 }
 
 type dataframeImpl struct {
-	plan engine.Plan
+	plan engine.Relation
 	exec *executionContext
 }
 
@@ -45,8 +45,11 @@ func (df dataframeImpl) Filter(expr engine.Expr) DataFrame {
 
 func (df dataframeImpl) Schema() (*arrow.Schema, error) { return df.plan.Schema() }
 
-func (df dataframeImpl) LogicalPlan() engine.Plan { return df.plan }
+func (df dataframeImpl) LogicalPlan() engine.Relation { return df.plan }
 
 var (
 	ColIdx = engine.NewColumnIndexExpr
+	Lit    = engine.NewLiteralExpr
+
+	Add = engine.Add
 )

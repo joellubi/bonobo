@@ -1,14 +1,21 @@
 Unbound Proto:
 {
- "read": {
-  "named_table": {
-   "names": [
-    "test_db",
-    "main",
-    "table1"
-   ]
+ "version": {},
+ "relations": [
+  {
+   "rel": {
+    "read": {
+     "named_table": {
+      "names": [
+       "test_db",
+       "main",
+       "table1"
+      ]
+     }
+    }
+   }
   }
- }
+ ]
 }
 
 Bound Root Schema:
@@ -20,40 +27,47 @@ schema:
 
 Bound Proto:
 {
- "read": {
-  "base_schema": {
-   "names": [
-    "col1",
-    "col2",
-    "col3"
-   ],
-   "struct": {
-    "types": [
-     {
-      "bool": {
+ "version": {},
+ "relations": [
+  {
+   "rel": {
+    "read": {
+     "base_schema": {
+      "names": [
+       "col1",
+       "col2",
+       "col3"
+      ],
+      "struct": {
+       "types": [
+        {
+         "bool": {
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        {
+         "string": {
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        {
+         "i64": {
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        }
+       ],
        "nullability": "NULLABILITY_REQUIRED"
       }
      },
-     {
-      "string": {
-       "nullability": "NULLABILITY_REQUIRED"
-      }
-     },
-     {
-      "i64": {
-       "nullability": "NULLABILITY_REQUIRED"
-      }
+     "named_table": {
+      "names": [
+       "test_db",
+       "main",
+       "table1"
+      ]
      }
-    ],
-    "nullability": "NULLABILITY_REQUIRED"
+    }
    }
-  },
-  "named_table": {
-   "names": [
-    "test_db",
-    "main",
-    "table1"
-   ]
   }
- }
+ ]
 }

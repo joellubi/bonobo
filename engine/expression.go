@@ -2,17 +2,19 @@ package engine
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/backdeck/backdeck/query/substrait"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
 type Expr interface {
 	fmt.Stringer
-	ToProto(input Plan) (*proto.Expression, error)
+	ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error)
 
-	Field(input Plan) (arrow.Field, error)
+	Field(input Relation) (arrow.Field, error)
 }
 
 type ExprList []Expr
@@ -34,7 +36,7 @@ type Column struct {
 	name string
 }
 
-func (expr *Column) ToProto(input Plan) (*proto.Expression, error) {
+func (expr *Column) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
 	var structField *proto.Expression_ReferenceSegment_StructField
 
 	// We cannot represent a named column ref
@@ -70,7 +72,7 @@ func (expr *Column) ToProto(input Plan) (*proto.Expression, error) {
 	}, nil
 }
 
-func (expr *Column) Field(input Plan) (arrow.Field, error) {
+func (expr *Column) Field(input Relation) (arrow.Field, error) {
 	inputSchema, err := input.Schema()
 	if err != nil {
 		return arrow.Field{}, err
@@ -100,7 +102,7 @@ type ColumnIndex struct {
 	index int
 }
 
-func (expr *ColumnIndex) ToProto(input Plan) (*proto.Expression, error) {
+func (expr *ColumnIndex) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
 	return &proto.Expression{
 		RexType: &proto.Expression_Selection{
 			Selection: &proto.Expression_FieldReference{
@@ -118,7 +120,7 @@ func (expr *ColumnIndex) ToProto(input Plan) (*proto.Expression, error) {
 	}, nil
 }
 
-func (expr *ColumnIndex) Field(input Plan) (arrow.Field, error) {
+func (expr *ColumnIndex) Field(input Relation) (arrow.Field, error) {
 	inputSchema, err := input.Schema()
 	if err != nil {
 		return arrow.Field{}, err
@@ -131,5 +133,135 @@ func (expr *ColumnIndex) String() string {
 	return fmt.Sprintf("#%d", expr.index)
 }
 
+func NewLiteralExpr(val any) *Literal {
+	var typ arrow.DataType
+
+	switch v := val.(type) {
+	case bool:
+		typ = ArrowTypes.BooleanType
+	case int8:
+		typ = ArrowTypes.Int8Type
+	case int16:
+		typ = ArrowTypes.Int16Type
+	case int32:
+		typ = ArrowTypes.Int32Type
+	case int64:
+		typ = ArrowTypes.Int64Type
+	case int:
+		typ = ArrowTypes.Int64Type
+		val = int64(v)
+	case float32:
+		typ = ArrowTypes.FloatType
+	case float64:
+		typ = ArrowTypes.DoubleType
+	case string:
+		typ = ArrowTypes.StringType
+	default:
+		panic(fmt.Sprintf("invalid literal type: %T", v))
+	}
+
+	return &Literal{val: val, typ: typ}
+}
+
+type Literal struct {
+	val any
+	typ arrow.DataType
+}
+
+func (expr *Literal) Field(input Relation) (arrow.Field, error) {
+	return arrow.Field{Name: expr.Name(), Type: expr.typ}, nil
+}
+
+func (expr *Literal) String() string {
+	return fmt.Sprintf("%s::%s", expr.Name(), expr.typ)
+}
+
+func (expr *Literal) Name() string {
+	switch v := expr.val.(type) {
+	case bool:
+		return strconv.FormatBool(v)
+	case int8:
+		return strconv.FormatInt(int64(v), 10)
+	case int16:
+		return strconv.FormatInt(int64(v), 10)
+	case int32:
+		return strconv.FormatInt(int64(v), 10)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case string:
+		return v
+	default:
+		panic(fmt.Sprintf("invalid literal type: %T", v))
+	}
+}
+
+func (expr *Literal) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
+	var exprLiteral *proto.Expression_Literal
+
+	switch v := expr.val.(type) {
+	case bool:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_Boolean{
+				Boolean: v,
+			},
+		}
+	case int8:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_I8{
+				I8: int32(v),
+			},
+		}
+	case int16:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_I16{
+				I16: int32(v),
+			},
+		}
+	case int32:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_I32{
+				I32: v,
+			},
+		}
+	case int64:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_I64{
+				I64: v,
+			},
+		}
+	case float32:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_Fp32{
+				Fp32: v,
+			},
+		}
+	case float64:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_Fp64{
+				Fp64: v,
+			},
+		}
+	case string:
+		exprLiteral = &proto.Expression_Literal{
+			LiteralType: &proto.Expression_Literal_String_{
+				String_: v,
+			},
+		}
+	default:
+		panic(fmt.Sprintf("invalid literal type: %T", v))
+	}
+
+	return &proto.Expression{
+		RexType: &proto.Expression_Literal_{
+			Literal: exprLiteral,
+		},
+	}, nil
+}
+
 var _ Expr = (*Column)(nil)
 var _ Expr = (*ColumnIndex)(nil)
+var _ Expr = (*Literal)(nil)

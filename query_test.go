@@ -99,6 +99,18 @@ var testcases = []struct {
 			Filter(df.ColIdx(1)),
 		Catalog: &testCatalog{},
 	},
+	{
+		Name: "read_project_plus_one",
+		DataFrame: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Select(df.Add(df.ColIdx(2), df.Lit(1))),
+		Catalog: &testCatalog{},
+	},
 }
 
 func TestDataFrame(t *testing.T) {
@@ -119,7 +131,8 @@ func TestDataFrame(t *testing.T) {
 	// mem.AssertSize(t, 0)
 }
 
-func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {
+func runTestSerialize(t *testing.T, name string, relation engine.Relation, catalog engine.Catalog) {
+	plan := engine.NewPlan(relation)
 	unboundRelText, err := engine.FormatPlan(plan)
 	if err != nil {
 		unboundRelText = fmt.Sprintf("Error %s", err.Error())
@@ -127,7 +140,7 @@ func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engin
 
 	engine.SetCatalogForPlan(plan, catalog)
 
-	planSchema, err := plan.Schema()
+	planSchema, err := relation.Schema()
 	require.NoError(t, err)
 
 	boundRelText, err := engine.FormatPlan(plan)
@@ -162,13 +175,14 @@ func runTestSerialize(t *testing.T, name string, plan engine.Plan, catalog engin
 	}
 }
 
-func runTestRoundTrip(t *testing.T, name string, plan engine.Plan, catalog engine.Catalog) {
+func runTestRoundTrip(t *testing.T, name string, relation engine.Relation, catalog engine.Catalog) {
+	plan := engine.NewPlan(relation)
 	engine.SetCatalogForPlan(plan, catalog)
 
-	rel, err := plan.ToProto()
+	p, err := plan.ToProto()
 	require.NoError(t, err)
 
-	planOut, err := engine.FromProto(rel)
+	planOut, err := engine.FromProto(p)
 	require.NoError(t, err)
 
 	planText, err := engine.FormatPlan(plan)
