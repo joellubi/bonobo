@@ -1,22 +1,5 @@
 Unbound Proto:
-{
- "version": {},
- "relations": [
-  {
-   "rel": {
-    "read": {
-     "named_table": {
-      "names": [
-       "test_db",
-       "main",
-       "table1"
-      ]
-     }
-    }
-   }
-  }
- ]
-}
+Error engine: attempted to determine schema of table that has not been bound to a catalog yet
 
 Bound Root Schema:
 schema:
@@ -30,43 +13,50 @@ Bound Proto:
  "version": {},
  "relations": [
   {
-   "rel": {
-    "read": {
-     "base_schema": {
-      "names": [
-       "col1",
-       "col2",
-       "col3"
-      ],
-      "struct": {
-       "types": [
-        {
-         "bool": {
-          "nullability": "NULLABILITY_REQUIRED"
-         }
-        },
-        {
-         "string": {
-          "nullability": "NULLABILITY_REQUIRED"
-         }
-        },
-        {
-         "i64": {
-          "nullability": "NULLABILITY_REQUIRED"
-         }
-        }
+   "root": {
+    "input": {
+     "read": {
+      "base_schema": {
+       "names": [
+        "col1",
+        "col2",
+        "col3"
        ],
-       "nullability": "NULLABILITY_REQUIRED"
+       "struct": {
+        "types": [
+         {
+          "bool": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "string": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         },
+         {
+          "i64": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         }
+        ],
+        "nullability": "NULLABILITY_REQUIRED"
+       }
+      },
+      "named_table": {
+       "names": [
+        "test_db",
+        "main",
+        "table1"
+       ]
       }
-     },
-     "named_table": {
-      "names": [
-       "test_db",
-       "main",
-       "table1"
-      ]
      }
-    }
+    },
+    "names": [
+     "col1",
+     "col2",
+     "col3"
+    ]
    }
   }
  ]

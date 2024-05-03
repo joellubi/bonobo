@@ -236,22 +236,31 @@ func FromProto(plan *proto.Plan) (*Plan, error) {
 
 	bldr := planBuilder{extensions: extensions}
 
-	relations := make([]Relation, len(plan.GetRelations()))
-	for i, planRel := range plan.GetRelations() {
+	relations := make([]Relation, 0)
+	var rootRelation Relation
+	for _, planRel := range plan.GetRelations() {
 		switch t := planRel.GetRelType().(type) {
 		case *proto.PlanRel_Root:
-			return nil, fmt.Errorf("unimplemented: PlanRel_Root")
-		case *proto.PlanRel_Rel:
-			relations[i], err = bldr.Rel(t.Rel)
+			if rootRelation != nil {
+				return nil, fmt.Errorf("cannot unmarshall plan with multiple root relations: unsupported")
+			}
+
+			rootRelation, err = bldr.Rel(t.Root.Input)
 			if err != nil {
 				return nil, err
 			}
+		case *proto.PlanRel_Rel:
+			rel, err := bldr.Rel(t.Rel)
+			if err != nil {
+				return nil, err
+			}
+			relations = append(relations, rel)
 		default:
 			return nil, fmt.Errorf("unrecognized proto.PlanRel type: %T", t)
 		}
 	}
 
-	return NewPlan(relations...), nil
+	return NewPlan(rootRelation, relations...), nil
 }
 
 type planBuilder struct {

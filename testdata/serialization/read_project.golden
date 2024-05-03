@@ -1,37 +1,5 @@
 Unbound Proto:
-{
- "version": {},
- "relations": [
-  {
-   "rel": {
-    "project": {
-     "input": {
-      "read": {
-       "named_table": {
-        "names": [
-         "test_db",
-         "main",
-         "table1"
-        ]
-       }
-      }
-     },
-     "expressions": [
-      {
-       "selection": {
-        "direct_reference": {
-         "struct_field": {
-          "field": 1
-         }
-        }
-       }
-      }
-     ]
-    }
-   }
-  }
- ]
-}
+Error engine: attempted to determine schema of table that has not been bound to a catalog yet
 
 Bound Root Schema:
 schema:
@@ -43,58 +11,63 @@ Bound Proto:
  "version": {},
  "relations": [
   {
-   "rel": {
-    "project": {
-     "input": {
-      "read": {
-       "base_schema": {
-        "names": [
-         "col1",
-         "col2",
-         "col3"
-        ],
-        "struct": {
-         "types": [
-          {
-           "bool": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          },
-          {
-           "string": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          },
-          {
-           "i64": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          }
+   "root": {
+    "input": {
+     "project": {
+      "input": {
+       "read": {
+        "base_schema": {
+         "names": [
+          "col1",
+          "col2",
+          "col3"
          ],
-         "nullability": "NULLABILITY_REQUIRED"
+         "struct": {
+          "types": [
+           {
+            "bool": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "string": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "i64": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           }
+          ],
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        "named_table": {
+         "names": [
+          "test_db",
+          "main",
+          "table1"
+         ]
         }
-       },
-       "named_table": {
-        "names": [
-         "test_db",
-         "main",
-         "table1"
-        ]
        }
-      }
-     },
-     "expressions": [
-      {
-       "selection": {
-        "direct_reference": {
-         "struct_field": {
-          "field": 1
+      },
+      "expressions": [
+       {
+        "selection": {
+         "direct_reference": {
+          "struct_field": {
+           "field": 1
+          }
          }
         }
        }
-      }
-     ]
-    }
+      ]
+     }
+    },
+    "names": [
+     "col2"
+    ]
    }
   }
  ]

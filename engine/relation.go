@@ -170,7 +170,7 @@ func (s *Selection) Child() Relation {
 }
 
 func SetCatalogForPlan(plan *Plan, catalog Catalog) {
-	for _, relation := range plan.relations {
+	for _, relation := range plan.Relations() {
 		SetCatalogForRelation(relation, catalog)
 	}
 }

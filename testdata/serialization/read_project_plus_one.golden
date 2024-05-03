@@ -26,79 +26,84 @@ Bound Proto:
  ],
  "relations": [
   {
-   "rel": {
-    "project": {
-     "input": {
-      "read": {
-       "base_schema": {
-        "names": [
-         "col1",
-         "col2",
-         "col3"
-        ],
-        "struct": {
-         "types": [
-          {
-           "bool": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          },
-          {
-           "string": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          },
-          {
-           "i64": {
-            "nullability": "NULLABILITY_REQUIRED"
-           }
-          }
+   "root": {
+    "input": {
+     "project": {
+      "input": {
+       "read": {
+        "base_schema": {
+         "names": [
+          "col1",
+          "col2",
+          "col3"
          ],
-         "nullability": "NULLABILITY_REQUIRED"
+         "struct": {
+          "types": [
+           {
+            "bool": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "string": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "i64": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           }
+          ],
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        "named_table": {
+         "names": [
+          "test_db",
+          "main",
+          "table1"
+         ]
         }
-       },
-       "named_table": {
-        "names": [
-         "test_db",
-         "main",
-         "table1"
-        ]
        }
-      }
-     },
-     "expressions": [
-      {
-       "scalar_function": {
-        "function_reference": 1,
-        "arguments": [
-         {
-          "value": {
-           "selection": {
-            "direct_reference": {
-             "struct_field": {
-              "field": 2
+      },
+      "expressions": [
+       {
+        "scalar_function": {
+         "function_reference": 1,
+         "arguments": [
+          {
+           "value": {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 2
+              }
              }
             }
            }
-          }
-         },
-         {
-          "value": {
-           "literal": {
-            "i64": "1"
+          },
+          {
+           "value": {
+            "literal": {
+             "i64": "1"
+            }
            }
           }
-         }
-        ],
-        "output_type": {
-         "i64": {
-          "nullability": "NULLABILITY_REQUIRED"
+         ],
+         "output_type": {
+          "i64": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
          }
         }
        }
-      }
-     ]
-    }
+      ]
+     }
+    },
+    "names": [
+     "add"
+    ]
    }
   }
  ]
