@@ -22,7 +22,9 @@ Bound Proto:
            "names": [
             "col1",
             "col2",
-            "col3"
+            "col3",
+            "col4",
+            "col5"
            ],
            "struct": {
             "types": [
@@ -38,6 +40,17 @@ Bound Proto:
              },
              {
               "i64": {
+               "nullability": "NULLABILITY_REQUIRED"
+              }
+             },
+             {
+              "decimal": {
+               "scale": 8,
+               "precision": 38
+              }
+             },
+             {
+              "date": {
                "nullability": "NULLABILITY_REQUIRED"
               }
              }

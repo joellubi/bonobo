@@ -33,6 +33,8 @@ func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 				{Name: "col1", Type: engine.ArrowTypes.BooleanType},
 				{Name: "col2", Type: engine.ArrowTypes.StringType},
 				{Name: "col3", Type: engine.ArrowTypes.Int64Type},
+				{Name: "col4", Type: engine.ArrowTypes.Decimal(38, 8)},
+				{Name: "col5", Type: engine.ArrowTypes.DateType},
 			},
 			nil,
 		)

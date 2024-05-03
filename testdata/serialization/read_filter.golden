@@ -3,10 +3,12 @@ Error engine: attempted to determine schema of table that has not been bound to 
 
 Bound Root Schema:
 schema:
-  fields: 3
+  fields: 5
     - col1: type=bool
     - col2: type=utf8
     - col3: type=int64
+    - col4: type=decimal(38, 8)
+    - col5: type=date32
 
 Bound Proto:
 {
@@ -22,7 +24,9 @@ Bound Proto:
          "names": [
           "col1",
           "col2",
-          "col3"
+          "col3",
+          "col4",
+          "col5"
          ],
          "struct": {
           "types": [
@@ -38,6 +42,17 @@ Bound Proto:
            },
            {
             "i64": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "decimal": {
+             "scale": 8,
+             "precision": 38
+            }
+           },
+           {
+            "date": {
              "nullability": "NULLABILITY_REQUIRED"
             }
            }
@@ -68,7 +83,9 @@ Bound Proto:
     "names": [
      "col1",
      "col2",
-     "col3"
+     "col3",
+     "col4",
+     "col5"
     ]
    }
   }

@@ -142,6 +142,12 @@ func arrowTypeForProtoType(protoType *proto.Type) (arrow.DataType, bool, error) 
 	case *proto.Type_String_:
 		nullability = t.String_.GetNullability()
 		arrowType = ArrowTypes.StringType
+	case *proto.Type_Decimal_:
+		nullability = t.Decimal.GetNullability()
+		arrowType = ArrowTypes.Decimal(t.Decimal.GetPrecision(), t.Decimal.GetScale())
+	case *proto.Type_Date_:
+		nullability = t.Date.GetNullability()
+		arrowType = ArrowTypes.DateType
 	default:
 		err = fmt.Errorf("unsupported proto type: %s", protoType.GetKind())
 	}
@@ -218,6 +224,42 @@ func protoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 			Kind: &proto.Type_String_{
 				String_: &proto.Type_String{
 					Nullability: nullability,
+				},
+			},
+		}, nil
+	case ArrowTypes.DateType.ID():
+		return &proto.Type{
+			Kind: &proto.Type_Date_{
+				Date: &proto.Type_Date{
+					Nullability: nullability,
+				},
+			},
+		}, nil
+	case arrow.DECIMAL128:
+		dec, ok := arrowType.(*arrow.Decimal128Type)
+		if !ok {
+			return nil, fmt.Errorf("cannot convert arrow to substrait type: invalid Decimal128: %s", arrowType)
+		}
+
+		return &proto.Type{
+			Kind: &proto.Type_Decimal_{
+				Decimal: &proto.Type_Decimal{
+					Precision: dec.GetPrecision(),
+					Scale:     dec.GetScale(),
+				},
+			},
+		}, nil
+	case arrow.DECIMAL256:
+		dec, ok := arrowType.(*arrow.Decimal256Type)
+		if !ok {
+			return nil, fmt.Errorf("cannot convert arrow to substrait type: invalid Decimal256: %s", arrowType)
+		}
+
+		return &proto.Type{
+			Kind: &proto.Type_Decimal_{
+				Decimal: &proto.Type_Decimal{
+					Precision: dec.GetPrecision(),
+					Scale:     dec.GetScale(),
 				},
 			},
 		}, nil
