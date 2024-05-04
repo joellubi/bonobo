@@ -3,26 +3,43 @@ package token
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
-type Token interface {
-	ID() token
-	Value() string
-	Precedence() int
-
-	IsLiteral() bool
-	IsOperator() bool
-	IsKeyword() bool
+type Token struct {
+	Name TokenName
+	Val  string
+	Pos  int
 }
 
-type token int
+func (tok Token) IsLiteral() bool  { return literal_beg < tok.Name && tok.Name < literal_end }
+func (tok Token) IsOperator() bool { return operator_beg < tok.Name && tok.Name < operator_end }
+func (tok Token) IsKeyword() bool  { return keyword_beg < tok.Name && tok.Name < keyword_end }
+
+// Precedence implements Token.
+func (tok *Token) Precedence() int {
+	switch tok.Name {
+	case ADD, SUB:
+		return 50
+	case MUL, QUO:
+		return 60
+	}
+	return LowestPrec
+}
+
+func (tok *Token) String() string {
+	return fmt.Sprintf("'%s' @ location %d", tok.Val, tok.Pos)
+}
+
+type TokenName int
 
 // The list of tokens.
 const (
 	// Special tokens
-	ILLEGAL token = iota // TODO: Remove unneeded tokens
+	ERROR TokenName = iota // TODO: Remove unneeded tokens
 	EOF
 	COMMENT
+	PERIOD // .
 
 	literal_beg
 	// Identifiers and basic type literals
@@ -41,9 +58,9 @@ const (
 	QUO // /
 	REM // %
 
-	AND // AND
-	OR  // OR
-	NOT // NOT
+	OPAND // &&
+	OPOR  // ||
+	OPNOT // !
 
 	EQL // =
 	NEQ // !=
@@ -56,7 +73,6 @@ const (
 	LBRACK // [
 	LBRACE // {
 	COMMA  // ,
-	PERIOD // .
 
 	RPAREN    // )
 	RBRACK    // ]
@@ -71,14 +87,18 @@ const (
 	FROM
 	WHERE
 	AS
+	AND
+	OR
+	NOT
 	keyword_end
 )
 
 var tokens = [...]string{
-	ILLEGAL: "ILLEGAL",
+	ERROR: "ERROR",
 
 	EOF:     "EOF",
 	COMMENT: "COMMENT",
+	PERIOD:  ".",
 
 	IDENT:  "IDENT",
 	INT:    "INT",
@@ -91,9 +111,9 @@ var tokens = [...]string{
 	QUO: "/",
 	REM: "%",
 
-	AND: "AND",
-	OR:  "OR",
-	NOT: "NOT",
+	OPAND: "&&",
+	OPOR:  "||",
+	OPNOT: "!",
 
 	EQL: "=",
 	NEQ: "!=",
@@ -106,7 +126,6 @@ var tokens = [...]string{
 	LBRACK: "[",
 	LBRACE: "{",
 	COMMA:  ",",
-	PERIOD: ".",
 
 	RPAREN:    ")",
 	RBRACK:    "]",
@@ -118,94 +137,82 @@ var tokens = [...]string{
 	FROM:   "FROM",
 	WHERE:  "WHERE",
 	AS:     "AS",
+	AND:    "AND",
+	OR:     "OR",
+	NOT:    "NOT",
 }
 
-func (tok token) Value() string {
-	if tok < literal_end || tok >= token(len(tokens)) {
-		panic(fmt.Sprintf("cannot determine value for token: %s", tok))
-	}
+func (tok TokenName) String() string {
 	return tokens[tok]
 }
 
-func (tok token) ID() token {
-	return tok
-}
+var (
+	keywordLookup  map[string]TokenName
+	operatorLookup [][]TokenName
+)
 
-func (tok token) String() string {
-	return tok.Value()
-}
+func operatorsStartingWith(r ...rune) []TokenName {
+	if len(r) == 0 || len(r) > 2 {
+		return nil
+	}
 
-var tokenLookup map[string]Token
+	tokens := operatorLookup[r[0]]
+	if len(tokens) < 2 || len(r) < 2 {
+		return tokens
+	}
+
+	if int(r[1]) >= len(tokens) {
+		return nil
+	}
+
+	tok := tokens[r[1]]
+	if tok == ERROR {
+		return nil
+	}
+
+	return []TokenName{tok}
+}
 
 func init() {
-	tokenLookup = make(map[string]Token, len(tokens)) // TODO: Kind of the right size...
-	for i := literal_beg + 1; i < literal_end; i++ {
-		tokenLookup[tokens[i]] = i
-	}
-	for i := operator_beg + 1; i < operator_end; i++ {
-		tokenLookup[tokens[i]] = i
-	}
+	keywordLookup = make(map[string]TokenName, keyword_end-keyword_beg)
 	for i := keyword_beg + 1; i < keyword_end; i++ {
-		tokenLookup[tokens[i]] = i
+		keywordLookup[tokens[i]] = i
+	}
+
+	operatorLookup = make([][]TokenName, 0)
+	for i := operator_beg + 1; i < operator_end; i++ {
+		opString := tokens[i]
+		r1, w1 := utf8.DecodeRuneInString(opString)
+
+		if len(operatorLookup) <= int(r1) {
+			operatorLookup = append(operatorLookup, make([][]TokenName, int(r1)-len(operatorLookup)+1)...)
+		}
+
+		var r2 rune
+		if w1 < len(opString) {
+			var w2 int
+			r2, w2 = utf8.DecodeRuneInString(opString[w1:])
+
+			if w1+w2 < len(opString) {
+				panic(fmt.Sprintf("cannot initialize operator lookup table, ops can have 2 chars max but found: %s", opString))
+			}
+		}
+
+		if len(operatorLookup[r1]) <= int(r2) {
+			operatorLookup[r1] = append(operatorLookup[r1], make([]TokenName, int(r2)-len(operatorLookup[r1])+1)...)
+		}
+
+		operatorLookup[r1][r2] = i
+
 	}
 }
 
-// LookupToken maps an identifier to a token if it is a valid token.
-func LookupToken(ident string) (Token, bool) {
-	tok, found := tokenLookup[strings.ToUpper(ident)]
+func LookupKeyword(val string) (TokenName, bool) {
+	tok, found := keywordLookup[strings.ToUpper(val)]
 	return tok, found
 }
 
 const (
-	LowestPrec = 0 // non-operators
-	// UnaryPrec   = 6
+	LowestPrec  = 0
 	HighestPrec = 100
 )
-
-// Precedence returns the operator precedence of the binary
-// operator op. If op is not a binary operator, the result
-// is LowestPrecedence.
-func (tok token) Precedence() int {
-	switch tok {
-	case ADD, SUB:
-		return 50
-	case MUL, QUO:
-		return 60
-	}
-	return LowestPrec
-}
-
-// IsLiteral returns true for tokens corresponding to identifiers
-// and basic type literals; it returns false otherwise.
-func (tok token) IsLiteral() bool { return literal_beg < tok && tok < literal_end }
-
-// IsOperator returns true for tokens corresponding to operators and
-// delimiters; it returns false otherwise.
-func (tok token) IsOperator() bool { return operator_beg < tok && tok < operator_end }
-
-// IsKeyword returns true for tokens corresponding to keywords;
-// it returns false otherwise.
-func (tok token) IsKeyword() bool { return keyword_beg < tok && tok < keyword_end }
-
-type literalToken struct {
-	token
-	value string
-}
-
-func Literal(tok token, value string) literalToken {
-	if !tok.IsLiteral() {
-		panic(fmt.Sprintf("cannot assign literal value to token: %s", tok))
-	}
-	return literalToken{token: tok, value: value}
-}
-
-func (tok literalToken) Value() string {
-	return tok.value
-}
-
-func (tok literalToken) String() string {
-	return tok.Value()
-}
-
-var _ Token = (*token)(nil)
-var _ Token = (*literalToken)(nil)

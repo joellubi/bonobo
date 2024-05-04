@@ -16,11 +16,11 @@ var exprParserTestcases = []struct {
 	{
 		Name: "1 + 2 * 3",
 		Input: []token.Token{
-			token.Literal(token.INT, "1"),
-			token.ADD,
-			token.Literal(token.INT, "2"),
-			token.MUL,
-			token.Literal(token.INT, "3"),
+			{Name: token.INT, Val: "1"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.INT, Val: "2"},
+			{Name: token.MUL, Val: "*"},
+			{Name: token.INT, Val: "3"},
 		},
 		Expected: &parse.SqlBinaryExpr{
 			Left: &parse.SqlIntLiteral{Value: 1},
@@ -35,11 +35,11 @@ var exprParserTestcases = []struct {
 	{
 		Name: "1 * 2 + 3",
 		Input: []token.Token{
-			token.Literal(token.INT, "1"),
-			token.MUL,
-			token.Literal(token.INT, "2"),
-			token.ADD,
-			token.Literal(token.INT, "3"),
+			{Name: token.INT, Val: "1"},
+			{Name: token.MUL, Val: "*"},
+			{Name: token.INT, Val: "2"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.INT, Val: "3"},
 		},
 		Expected: &parse.SqlBinaryExpr{
 			Left: &parse.SqlBinaryExpr{
@@ -54,16 +54,16 @@ var exprParserTestcases = []struct {
 	{
 		Name: "SELECT 1 * 2 + 3, 4 / 5",
 		Input: []token.Token{
-			token.SELECT,
-			token.Literal(token.INT, "1"),
-			token.MUL,
-			token.Literal(token.INT, "2"),
-			token.ADD,
-			token.Literal(token.INT, "3"),
-			token.COMMA,
-			token.Literal(token.INT, "4"),
-			token.QUO,
-			token.Literal(token.INT, "5"),
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.INT, Val: "1"},
+			{Name: token.MUL, Val: "*"},
+			{Name: token.INT, Val: "2"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.INT, Val: "3"},
+			{Name: token.COMMA, Val: ","},
+			{Name: token.INT, Val: "4"},
+			{Name: token.QUO, Val: "/"},
+			{Name: token.INT, Val: "5"},
 		},
 		Expected: parse.SqlSelectRelation(
 			[]parse.SqlExpr{
@@ -87,14 +87,14 @@ var exprParserTestcases = []struct {
 	{
 		Name: "SELECT a + b, c FROM d",
 		Input: []token.Token{
-			token.SELECT,
-			token.Literal(token.IDENT, "a"),
-			token.ADD,
-			token.Literal(token.IDENT, "b"),
-			token.COMMA,
-			token.Literal(token.IDENT, "c"),
-			token.FROM,
-			token.Literal(token.IDENT, "d"),
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.COMMA, Val: ","},
+			{Name: token.IDENT, Val: "c"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "d"},
 		},
 		// Only the SELECT is consumed by the expression parser
 		Expected: parse.SqlSelectRelation(
@@ -111,17 +111,16 @@ var exprParserTestcases = []struct {
 	// {
 	// 	Name: "SELECT a FROM (SELECT a FROM x) AS x",
 	// 	Input: []token.Token{
-	// 		token.SELECT,
-	// 		token.Literal(token.IDENT, "a"),
-	// 		token.FROM,
-	// 		token.LPAREN,
-	// 		token.SELECT,
-	// 		token.Literal(token.IDENT, "a"),
-	// 		token.FROM,
-	// 		token.Literal(token.IDENT, "x"),
-	// 		token.RPAREN,
-	// 		token.AS,
-	// 		token.Literal(token.IDENT, "x"),
+	// 		{Name: token.SELECT, Val: "SELECT"},
+	// 		{Name: token.IDENT, Val: "a"},
+	// 		{Name: token.FROM, Val: "FROM"},
+	// 		{Name: token.LPAREN, Val: "("},
+	// 		{Name: token.SELECT, Val: "SELECT"},
+	// 		{Name: token.IDENT, Val: "a"},
+	// 		{Name: token.FROM, Val: "FROM"},
+	// 		{Name: token.RPAREN, Val: ")"},
+	// 		{Name: token.AS, Val: "AS"},
+	// 		{Name: token.IDENT, Val: "x"},
 	// 	},
 	// 	Expected: []parse.SqlExpr{
 	// 		parse.SqlSelectRelation(
@@ -137,7 +136,8 @@ var exprParserTestcases = []struct {
 func TestExprParser(t *testing.T) {
 	for _, tc := range exprParserTestcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			parser := parse.NewExprParser(tc.Input)
+			tokens := token.NewListTokenStream(tc.Input)
+			parser := parse.NewExprParser(tokens)
 
 			output, err := parser.Parse(0)
 			require.NoError(t, err)
@@ -156,10 +156,10 @@ var queryParserTestcases = []struct {
 	{
 		Name: "SELECT a + b",
 		Input: []token.Token{
-			token.SELECT,
-			token.Literal(token.IDENT, "a"),
-			token.ADD,
-			token.Literal(token.IDENT, "b"),
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "b"},
 		},
 		Expected: &parse.SqlQuery{
 			Projection: parse.SqlSelectRelation(
@@ -176,12 +176,12 @@ var queryParserTestcases = []struct {
 	{
 		Name: "SELECT a + b FROM c",
 		Input: []token.Token{
-			token.SELECT,
-			token.Literal(token.IDENT, "a"),
-			token.ADD,
-			token.Literal(token.IDENT, "b"),
-			token.FROM,
-			token.Literal(token.IDENT, "c"),
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "c"},
 		},
 		Expected: &parse.SqlQuery{
 			Projection: parse.SqlSelectRelation(
@@ -199,23 +199,23 @@ var queryParserTestcases = []struct {
 	{
 		Name: "a + b FROM c",
 		Input: []token.Token{
-			token.Literal(token.IDENT, "a"),
-			token.ADD,
-			token.Literal(token.IDENT, "b"),
-			token.FROM,
-			token.Literal(token.IDENT, "c"),
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "c"},
 		},
 		Error: true,
 	},
 	{
 		Name: "SELECT a FROM b + c",
 		Input: []token.Token{
-			token.SELECT,
-			token.Literal(token.IDENT, "a"),
-			token.FROM,
-			token.Literal(token.IDENT, "b"),
-			token.ADD,
-			token.Literal(token.IDENT, "c"),
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "c"},
 		},
 		Error: true,
 	},
@@ -225,7 +225,8 @@ func TestQueryParser(t *testing.T) {
 	var parser parse.QueryParser
 	for _, tc := range queryParserTestcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			query, err := parser.Parse(tc.Input)
+			tokens := token.NewListTokenStream(tc.Input)
+			query, err := parser.Parse(tokens)
 
 			if tc.Error {
 				require.Error(t, err)

@@ -1,8 +1,6 @@
 package sql
 
 import (
-	"strings"
-
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/backdeck/backdeck/query/sql/parse"
 	"github.com/backdeck/backdeck/query/sql/plan"
@@ -16,11 +14,8 @@ type SQLParser interface {
 type Parser struct{}
 
 func (*Parser) Parse(sql string) (*engine.Plan, error) {
-	tokenizer := token.NewTokenizer()
-	tokens, err := tokenizer.Tokenize(strings.NewReader(sql))
-	if err != nil {
-		return nil, err
-	}
+	lex := token.Lex(sql)
+	tokens := token.NewTokenStream(lex)
 
 	var parser parse.QueryParser
 	ast, err := parser.Parse(tokens)
