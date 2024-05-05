@@ -1,0 +1,92 @@
+SQL Query:
+
+SELECT col1, col2 FROM test_db.main.table1
+
+Substrait Plan:
+
+{
+ "version": {},
+ "relations": [
+  {
+   "root": {
+    "input": {
+     "project": {
+      "input": {
+       "read": {
+        "base_schema": {
+         "names": [
+          "col1",
+          "col2",
+          "col3",
+          "col4",
+          "col5"
+         ],
+         "struct": {
+          "types": [
+           {
+            "bool": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "string": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "i64": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "decimal": {
+             "scale": 8,
+             "precision": 38
+            }
+           },
+           {
+            "date": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           }
+          ],
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        "named_table": {
+         "names": [
+          "test_db",
+          "main",
+          "table1"
+         ]
+        }
+       }
+      },
+      "expressions": [
+       {
+        "selection": {
+         "direct_reference": {
+          "struct_field": {}
+         }
+        }
+       },
+       {
+        "selection": {
+         "direct_reference": {
+          "struct_field": {
+           "field": 1
+          }
+         }
+        }
+       }
+      ]
+     }
+    },
+    "names": [
+     "col1",
+     "col2"
+    ]
+   }
+  }
+ ]
+}

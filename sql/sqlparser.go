@@ -7,13 +7,7 @@ import (
 	"github.com/backdeck/backdeck/query/sql/token"
 )
 
-type SQLParser interface {
-	Parse(sql string) (*engine.Plan, error)
-}
-
-type Parser struct{}
-
-func (*Parser) Parse(sql string) (*engine.Plan, error) {
+func Parse(sql string) (*engine.Plan, error) {
 	lex := token.Lex(sql)
 	tokens := token.NewTokenStream(lex)
 
@@ -30,5 +24,3 @@ func (*Parser) Parse(sql string) (*engine.Plan, error) {
 
 	return engine.NewPlan(rel), nil
 }
-
-var _ SQLParser = (*Parser)(nil)

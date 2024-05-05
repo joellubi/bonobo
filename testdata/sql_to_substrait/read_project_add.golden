@@ -1,0 +1,120 @@
+SQL Query:
+
+SELECT col3 + 3 FROM test_db.main.table1
+
+Substrait Plan:
+
+{
+ "version": {},
+ "extension_uris": [
+  {
+   "extension_uri_anchor": 1,
+   "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+  }
+ ],
+ "extensions": [
+  {
+   "extension_function": {
+    "extension_uri_reference": 1,
+    "function_anchor": 1,
+    "name": "add:i64_i64"
+   }
+  }
+ ],
+ "relations": [
+  {
+   "root": {
+    "input": {
+     "project": {
+      "input": {
+       "read": {
+        "base_schema": {
+         "names": [
+          "col1",
+          "col2",
+          "col3",
+          "col4",
+          "col5"
+         ],
+         "struct": {
+          "types": [
+           {
+            "bool": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "string": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "i64": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           },
+           {
+            "decimal": {
+             "scale": 8,
+             "precision": 38
+            }
+           },
+           {
+            "date": {
+             "nullability": "NULLABILITY_REQUIRED"
+            }
+           }
+          ],
+          "nullability": "NULLABILITY_REQUIRED"
+         }
+        },
+        "named_table": {
+         "names": [
+          "test_db",
+          "main",
+          "table1"
+         ]
+        }
+       }
+      },
+      "expressions": [
+       {
+        "scalar_function": {
+         "function_reference": 1,
+         "arguments": [
+          {
+           "value": {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 2
+              }
+             }
+            }
+           }
+          },
+          {
+           "value": {
+            "literal": {
+             "i64": "3"
+            }
+           }
+          }
+         ],
+         "output_type": {
+          "i64": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
+         }
+        }
+       }
+      ]
+     }
+    },
+    "names": [
+     "add"
+    ]
+   }
+  }
+ ]
+}

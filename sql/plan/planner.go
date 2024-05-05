@@ -10,7 +10,11 @@ import (
 func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 	switch e := expr.(type) {
 	case *parse.SqlIdentifier:
-		return engine.NewColumnExpr(e.ID), nil
+		if len(e.Names) != 1 {
+			return nil, fmt.Errorf("unimplemented: multi-part column identifier: %s", e.Names)
+		}
+
+		return engine.NewColumnExpr(e.Names[0]), nil
 	case *parse.SqlIntLiteral:
 		return engine.NewLiteralExpr(e.Value), nil
 	case *parse.SqlBinaryExpr:
@@ -40,7 +44,7 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 	if query.Read != nil {
 		switch t := query.Read.Table.(type) {
 		case *parse.SqlIdentifier:
-			table := engine.NewNamedTable([]string{t.ID}, nil) // TODO: Handle namespace splitting
+			table := engine.NewNamedTable(t.Names, nil)
 			plan = engine.NewReadOperation(table)
 		case *parse.SqlQuery:
 			return nil, fmt.Errorf("plan: Read from subquery unimplemented")

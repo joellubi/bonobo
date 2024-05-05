@@ -17,7 +17,7 @@ var testcases = []struct {
 }{
 	{
 		Name:  "named_table_read",
-		Input: &parse.SqlQuery{Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "a"})},
+		Input: &parse.SqlQuery{Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"a"}})},
 		Expected: df.QueryContext().
 			Read(engine.NewNamedTable([]string{"a"}, nil)).
 			LogicalPlan(),
@@ -25,10 +25,10 @@ var testcases = []struct {
 	{
 		Name: "select_from_named_table",
 		Input: &parse.SqlQuery{
-			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "b"}),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"b"}}),
 			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
-					&parse.SqlIdentifier{ID: "a"},
+					&parse.SqlIdentifier{Names: []string{"a"}},
 				},
 			),
 		},
@@ -40,11 +40,11 @@ var testcases = []struct {
 	{
 		Name: "select_multiple_from_named_table",
 		Input: &parse.SqlQuery{
-			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"c"}}),
 			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
-					&parse.SqlIdentifier{ID: "a"},
-					&parse.SqlIdentifier{ID: "b"},
+					&parse.SqlIdentifier{Names: []string{"a"}},
+					&parse.SqlIdentifier{Names: []string{"b"}},
 				},
 			),
 		},
@@ -59,12 +59,12 @@ var testcases = []struct {
 	{
 		Name: "select_multiple_add_int_from_named_table",
 		Input: &parse.SqlQuery{
-			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"c"}}),
 			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
-					&parse.SqlIdentifier{ID: "a"},
+					&parse.SqlIdentifier{Names: []string{"a"}},
 					&parse.SqlBinaryExpr{
-						Left:  &parse.SqlIdentifier{ID: "b"},
+						Left:  &parse.SqlIdentifier{Names: []string{"b"}},
 						Op:    "+",
 						Right: &parse.SqlIntLiteral{Value: 1},
 					},

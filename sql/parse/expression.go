@@ -11,7 +11,7 @@ type SqlExpr interface {
 }
 
 type SqlIdentifier struct {
-	ID string
+	Names []string
 }
 
 func (*SqlIdentifier) Children() []SqlNode {
@@ -19,7 +19,7 @@ func (*SqlIdentifier) Children() []SqlNode {
 }
 
 func (s *SqlIdentifier) String() string {
-	return s.ID
+	return strings.Join(s.Names, ".")
 }
 
 type SqlStringLiteral struct {

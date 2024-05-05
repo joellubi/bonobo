@@ -100,11 +100,11 @@ var exprParserTestcases = []struct {
 		Expected: parse.SqlSelectRelation(
 			[]parse.SqlExpr{
 				&parse.SqlBinaryExpr{
-					Left:  &parse.SqlIdentifier{ID: "a"},
+					Left:  &parse.SqlIdentifier{Names: []string{"a"}},
 					Op:    "+",
-					Right: &parse.SqlIdentifier{ID: "b"},
+					Right: &parse.SqlIdentifier{Names: []string{"b"}},
 				},
-				&parse.SqlIdentifier{ID: "c"},
+				&parse.SqlIdentifier{Names: []string{"c"}},
 			},
 		),
 	},
@@ -165,9 +165,9 @@ var queryParserTestcases = []struct {
 			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
 					&parse.SqlBinaryExpr{
-						Left:  &parse.SqlIdentifier{ID: "a"},
+						Left:  &parse.SqlIdentifier{Names: []string{"a"}},
 						Op:    "+",
-						Right: &parse.SqlIdentifier{ID: "b"},
+						Right: &parse.SqlIdentifier{Names: []string{"b"}},
 					},
 				},
 			),
@@ -187,13 +187,13 @@ var queryParserTestcases = []struct {
 			Projection: parse.SqlSelectRelation(
 				[]parse.SqlExpr{
 					&parse.SqlBinaryExpr{
-						Left:  &parse.SqlIdentifier{ID: "a"},
+						Left:  &parse.SqlIdentifier{Names: []string{"a"}},
 						Op:    "+",
-						Right: &parse.SqlIdentifier{ID: "b"},
+						Right: &parse.SqlIdentifier{Names: []string{"b"}},
 					},
 				},
 			),
-			Read: parse.SqlFromRelation(&parse.SqlIdentifier{ID: "c"}),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"c"}}),
 		},
 	},
 	{

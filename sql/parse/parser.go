@@ -100,7 +100,7 @@ func (p *exprParser) ParsePrefix() (SqlExpr, error) {
 	case token.FROM:
 		return p.parseFrom()
 	case token.IDENT:
-		return &SqlIdentifier{ID: tok.Val}, nil
+		return p.parseIdentifier(tok.Val)
 	case token.INT:
 		val, err := strconv.Atoi(tok.Val)
 		if err != nil {
@@ -161,7 +161,7 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 
 	switch tok.Name {
 	case token.IDENT:
-		return p.parseTableIdentifier()
+		return p.parseIdentifier()
 	case token.LPAREN:
 		return nil, fmt.Errorf("unimplemented: FROM subquery")
 	}
@@ -169,15 +169,29 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 	return nil, fmt.Errorf("parse: unexpected token: %s", tok.String())
 }
 
-func (p *exprParser) parseTableIdentifier() (SqlExpr, error) {
-	tok, err := p.expectToken(token.IDENT)
-	if err != nil {
-		return nil, err
+func (p *exprParser) parseIdentifier(names ...string) (SqlExpr, error) {
+	if len(names) != 0 {
+		// Partially-consumed identifier; already at end or period delimits next part
+		_, err := p.expectToken(token.PERIOD)
+		if err != nil {
+			return &SqlIdentifier{Names: names}, nil
+		}
 	}
 
-	// TODO: expect PERIOD to check for namespaced tables
+	for {
+		tok, err := p.expectToken(token.IDENT)
+		if err != nil {
+			return nil, err
+		}
+		names = append(names, tok.Val)
 
-	return &SqlIdentifier{ID: tok.Val}, nil
+		_, err = p.expectToken(token.PERIOD)
+		if err != nil {
+			break
+		}
+	}
+
+	return &SqlIdentifier{Names: names}, nil
 }
 
 func (p *exprParser) parseExprList() ([]SqlExpr, error) {
