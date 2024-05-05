@@ -14,10 +14,6 @@ type SqlNode interface {
 	Children() []SqlNode
 }
 
-// type Parser interface {
-// 	Parse(tokens token.TokenStream) (*SqlQuery, error)
-// }
-
 type PrattParser interface {
 	Parse(precedence int) (SqlExpr, error)
 	NextPrecedence() int
@@ -229,20 +225,6 @@ func (p *exprParser) parseExprList() ([]SqlExpr, error) {
 func (p *exprParser) parseExpr() (SqlExpr, error) {
 	return p.Parse(0)
 }
-
-// func (p *exprParser) consumeToken(tok token.Token) bool {
-// 	t, more := p.tokens.Peek()
-// 	if !more {
-// 		return false
-// 	}
-
-// 	if t != tok {
-// 		return false
-// 	}
-
-// 	p.tokens.Next()
-// 	return true
-// }
 
 func (p *exprParser) expectToken(tok token.TokenName) (token.Token, error) {
 	t, more := p.tokens.Peek()
