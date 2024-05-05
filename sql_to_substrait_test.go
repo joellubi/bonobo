@@ -71,6 +71,10 @@ var sqltestcases = []struct {
 		Name:  "math_multi_expr",
 		Query: "SELECT 1 + 2 + 3",
 	},
+	{
+		Name:  "read_project_filter",
+		Query: "SELECT col1, col2 FROM test_db.main.table1 WHERE col1",
+	},
 }
 
 func TestSqlToSubstrait(t *testing.T) {

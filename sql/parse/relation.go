@@ -63,5 +63,26 @@ func (r *sqlFromRelation) String() string {
 	return fmt.Sprintf("%s\n\t%s", r.Name(), r.Table.String())
 }
 
+func SqlWhereRelation(expr SqlExpr) *sqlWhereRelation {
+	return &sqlWhereRelation{Expr: expr}
+}
+
+type sqlWhereRelation struct {
+	Expr SqlExpr
+}
+
+func (r *sqlWhereRelation) Children() []SqlNode {
+	return []SqlNode{r.Expr}
+}
+
+func (*sqlWhereRelation) Name() string {
+	return "WHERE"
+}
+
+func (r *sqlWhereRelation) String() string {
+	return fmt.Sprintf("%s\n\t%s", r.Name(), r.Expr.String())
+}
+
 var _ SqlRelation = (*sqlSelectRelation)(nil)
 var _ SqlRelation = (*sqlFromRelation)(nil)
+var _ SqlRelation = (*sqlWhereRelation)(nil)

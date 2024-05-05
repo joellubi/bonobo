@@ -11,8 +11,7 @@ func Parse(sql string) (*engine.Plan, error) {
 	lex := token.Lex(sql)
 	tokens := token.NewTokenStream(lex)
 
-	var parser parse.QueryParser
-	ast, err := parser.Parse(tokens)
+	ast, err := parse.Parse(tokens)
 	if err != nil {
 		return nil, err
 	}

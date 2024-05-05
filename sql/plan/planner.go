@@ -56,6 +56,14 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 		plan = engine.NewReadOperation(table)
 	}
 
+	if query.Filter != nil {
+		expr, err := CreateLogicalExpr(query.Filter.Expr)
+		if err != nil {
+			return nil, fmt.Errorf("parse: failed to plan SQL query: %w", err)
+		}
+		plan = engine.NewSelectionOperation(plan, expr)
+	}
+
 	if query.Projection != nil {
 		exprs := make([]engine.Expr, len(query.Projection.Exprs))
 		for i, expr := range query.Projection.Exprs {

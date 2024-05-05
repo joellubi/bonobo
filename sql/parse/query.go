@@ -5,6 +5,7 @@ import "fmt"
 type SqlQuery struct {
 	Read       *sqlFromRelation
 	Projection *sqlSelectRelation
+	Filter     *sqlWhereRelation
 }
 
 // Children implements SqlExpr.
@@ -44,6 +45,15 @@ func (bldr *SqlQueryBuilder) From(rel *sqlFromRelation) error {
 	}
 
 	bldr.query.Read = rel
+	return nil
+}
+
+func (bldr *SqlQueryBuilder) Where(rel *sqlWhereRelation) error {
+	if bldr.query.Filter != nil {
+		return fmt.Errorf("parse: query cannot have more than one WHERE")
+	}
+
+	bldr.query.Filter = rel
 	return nil
 }
 

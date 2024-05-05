@@ -14,9 +14,9 @@ type SqlNode interface {
 	Children() []SqlNode
 }
 
-type Parser interface {
-	Parse(tokens token.TokenStream) (*SqlQuery, error)
-}
+// type Parser interface {
+// 	Parse(tokens token.TokenStream) (*SqlQuery, error)
+// }
 
 type PrattParser interface {
 	Parse(precedence int) (SqlExpr, error)
@@ -25,12 +25,8 @@ type PrattParser interface {
 	ParseInfix(left SqlExpr, precedence int) (SqlExpr, error)
 }
 
-type QueryParser struct {
-	bldr SqlQueryBuilder
-}
-
-// Parse implements QueryParser.
-func (p *QueryParser) Parse(tokens token.TokenStream) (*SqlQuery, error) {
+func Parse(tokens token.TokenStream) (*SqlQuery, error) {
+	var bldr SqlQueryBuilder
 	parser := NewExprParser(tokens)
 	for {
 		block, err := parser.Parse(token.HighestPrec)
@@ -43,15 +39,17 @@ func (p *QueryParser) Parse(tokens token.TokenStream) (*SqlQuery, error) {
 
 		switch b := block.(type) {
 		case *sqlSelectRelation:
-			p.bldr.Select(b)
+			bldr.Select(b)
 		case *sqlFromRelation:
-			p.bldr.From(b)
+			bldr.From(b)
+		case *sqlWhereRelation:
+			bldr.Where(b)
 		default:
 			return nil, fmt.Errorf("parse: expected valid sql relation, found %[1]T: %[1]s", b)
 		}
 	}
 
-	return p.bldr.Query(), nil
+	return bldr.Query(), nil
 }
 
 func NewExprParser(tokens token.TokenStream) PrattParser {
@@ -99,6 +97,8 @@ func (p *exprParser) ParsePrefix() (SqlExpr, error) {
 		return p.parseSelect()
 	case token.FROM:
 		return p.parseFrom()
+	case token.WHERE:
+		return p.parseWhere()
 	case token.IDENT:
 		return p.parseIdentifier(tok.Val)
 	case token.INT:
@@ -167,6 +167,14 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 	}
 
 	return nil, fmt.Errorf("parse: unexpected token: %s", tok.String())
+}
+
+func (p *exprParser) parseWhere() (*sqlWhereRelation, error) {
+	expr, err := p.parseExpr()
+	if err != nil {
+		return nil, fmt.Errorf("expected expression to follow WHERE: %w", err)
+	}
+	return SqlWhereRelation(expr), nil
 }
 
 func (p *exprParser) parseIdentifier(names ...string) (SqlExpr, error) {
@@ -251,4 +259,3 @@ func (p *exprParser) expectToken(tok token.TokenName) (token.Token, error) {
 }
 
 var _ PrattParser = (*exprParser)(nil)
-var _ Parser = (*QueryParser)(nil)

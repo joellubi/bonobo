@@ -219,14 +219,47 @@ var queryParserTestcases = []struct {
 		},
 		Error: true,
 	},
+	{
+		Name: "SELECT a + b FROM c WHERE d > 1",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.ADD, Val: "+"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "c"},
+			{Name: token.WHERE, Val: "WHERE"},
+			{Name: token.IDENT, Val: "d"},
+			{Name: token.GTR, Val: ">"},
+			{Name: token.INT, Val: "1"},
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlBinaryExpr{
+						Left:  &parse.SqlIdentifier{Names: []string{"a"}},
+						Op:    "+",
+						Right: &parse.SqlIdentifier{Names: []string{"b"}},
+					},
+				},
+			),
+			Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"c"}}),
+			Filter: parse.SqlWhereRelation(
+				&parse.SqlBinaryExpr{
+					Left:  &parse.SqlIdentifier{Names: []string{"d"}},
+					Op:    ">",
+					Right: &parse.SqlIntLiteral{Value: 1},
+				},
+			),
+		},
+	},
 }
 
 func TestQueryParser(t *testing.T) {
-	var parser parse.QueryParser
 	for _, tc := range queryParserTestcases {
 		t.Run(tc.Name, func(t *testing.T) {
 			tokens := token.NewListTokenStream(tc.Input)
-			query, err := parser.Parse(tokens)
+			query, err := parse.Parse(tokens)
 
 			if tc.Error {
 				require.Error(t, err)
