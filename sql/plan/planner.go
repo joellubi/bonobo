@@ -51,6 +51,9 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 		default:
 			return nil, fmt.Errorf("plan: unrecognized SqlExpr type for Read operation: %T", t)
 		}
+	} else {
+		table := engine.NewVirtualTable(nil)
+		plan = engine.NewReadOperation(table)
 	}
 
 	if query.Projection != nil {

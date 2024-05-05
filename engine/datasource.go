@@ -2,6 +2,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/backdeck/backdeck/query/substrait"
@@ -82,6 +83,40 @@ func (t *namedTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Re
 	}, nil
 }
 
+func NewVirtualTable(rec arrow.Record) *virtualTable {
+	return &virtualTable{rec: rec}
+}
+
+type virtualTable struct {
+	rec arrow.Record
+}
+
+func (t *virtualTable) Schema() (*arrow.Schema, error) {
+	if t.rec == nil {
+		return arrow.NewSchema(nil, nil), nil
+	}
+
+	return t.rec.Schema(), nil
+}
+
+func (t *virtualTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error) {
+	if t.rec != nil {
+		return nil, fmt.Errorf("engine: virtual table from arrow record is not yet implemented")
+	}
+
+	return &proto.Rel{
+		RelType: &proto.Rel_Read{
+			Read: &proto.ReadRel{
+				ReadType: &proto.ReadRel_VirtualTable_{
+					VirtualTable: &proto.ReadRel_VirtualTable{
+						Values: nil,
+					},
+				},
+			},
+		},
+	}, nil
+}
+
 func NewAnonymousCatalog(schema *arrow.Schema) *anonymousCatalog {
 	return &anonymousCatalog{schema: schema}
 }
@@ -95,4 +130,5 @@ func (c *anonymousCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 }
 
 var _ NamedTable = (*namedTable)(nil)
+var _ Table = (*virtualTable)(nil)
 var _ Catalog = (*anonymousCatalog)(nil)
