@@ -54,14 +54,24 @@ func NewExprParser(tokens token.TokenStream) PrattParser {
 
 type exprParser struct {
 	tokens token.TokenStream
+	depth  int
 }
 
 // Parse implements Parser.
 func (p *exprParser) Parse(precedence int) (SqlExpr, error) {
+	if err := p.consumeLeftParens(); err != nil {
+		return nil, err
+	}
+
 	expr, err := p.ParsePrefix()
 	if err != nil {
 		return nil, err
 	}
+
+	if err := p.consumeRightParens(); err != nil {
+		return nil, err
+	}
+
 	for precedence < p.NextPrecedence() {
 		expr, err = p.ParseInfix(expr, p.NextPrecedence())
 		if err != nil {
@@ -78,7 +88,7 @@ func (p *exprParser) NextPrecedence() int {
 		return token.LowestPrec
 	}
 
-	return tok.Precedence()
+	return tok.Precedence() + (p.depth * token.HighestPrec)
 }
 
 // ParsePrefix implements Parser.
@@ -129,6 +139,36 @@ func (p *exprParser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
 		Op:    tok.Val,
 		Right: right,
 	}, nil
+}
+
+func (p *exprParser) consumeLeftParens() error {
+	for {
+		tok, _ := p.tokens.Peek()
+		switch tok.Name {
+		case token.LPAREN:
+			p.depth++
+			p.tokens.Next()
+		case token.RPAREN:
+			return fmt.Errorf("parse: unexpected token: %s", tok.String())
+		default:
+			return nil
+		}
+	}
+}
+
+func (p *exprParser) consumeRightParens() error {
+	for {
+		tok, _ := p.tokens.Peek()
+		switch tok.Name {
+		case token.LPAREN:
+			return fmt.Errorf("parse: unexpected token: %s", tok.String())
+		case token.RPAREN:
+			p.depth--
+			p.tokens.Next()
+		default:
+			return nil
+		}
+	}
 }
 
 func (p *exprParser) parseSelect() (*sqlSelectRelation, error) {
@@ -223,7 +263,18 @@ func (p *exprParser) parseExprList() ([]SqlExpr, error) {
 }
 
 func (p *exprParser) parseExpr() (SqlExpr, error) {
-	return p.Parse(0)
+	depthStart := p.depth
+
+	expr, err := p.Parse(token.LowestPrec)
+	if err != nil {
+		return nil, err
+	}
+
+	if p.depth != depthStart {
+		return nil, fmt.Errorf("parse: invalid expression, unmatched parentheses")
+	}
+
+	return expr, nil
 }
 
 func (p *exprParser) expectToken(tok token.TokenName) (token.Token, error) {
