@@ -247,6 +247,140 @@ var testcases = []struct {
 		},
 		Error: true,
 	},
+	{
+		Name: "SELECT a FROM (SELECT a FROM b)",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.LPAREN, Val: "("},
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.RPAREN, Val: ")"},
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{Names: []string{"a"}},
+				},
+			),
+			Read: parse.SqlFromRelation(
+				&parse.SqlQuery{
+					Projection: parse.SqlSelectRelation(
+						[]parse.SqlExpr{
+							&parse.SqlIdentifier{Names: []string{"a"}},
+						},
+					),
+					Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"b"}}),
+				},
+			),
+		},
+	},
+	{
+		Name: "SELECT a FROM (SELECT a FROM (SELECT a FROM b))",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.LPAREN, Val: "("},
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.LPAREN, Val: "("},
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.RPAREN, Val: ")"},
+			{Name: token.RPAREN, Val: ")"},
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{Names: []string{"a"}},
+				},
+			),
+			Read: parse.SqlFromRelation(
+				&parse.SqlQuery{
+					Projection: parse.SqlSelectRelation(
+						[]parse.SqlExpr{
+							&parse.SqlIdentifier{Names: []string{"a"}},
+						},
+					),
+					Read: parse.SqlFromRelation(
+						&parse.SqlQuery{
+							Projection: parse.SqlSelectRelation(
+								[]parse.SqlExpr{
+									&parse.SqlIdentifier{Names: []string{"a"}},
+								},
+							),
+							Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"b"}}),
+						},
+					),
+				},
+			),
+		},
+	},
+	{
+		Name: "SELECT a FROM (SELECT a FROM (SELECT a FROM b)) WHERE b.c = 5",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.LPAREN, Val: "("},
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.LPAREN, Val: "("},
+			{Name: token.SELECT, Val: "SELECT"},
+			{Name: token.IDENT, Val: "a"},
+			{Name: token.FROM, Val: "FROM"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.RPAREN, Val: ")"},
+			{Name: token.RPAREN, Val: ")"},
+			{Name: token.WHERE, Val: "WHERE"},
+			{Name: token.IDENT, Val: "b"},
+			{Name: token.PERIOD, Val: "."},
+			{Name: token.IDENT, Val: "c"},
+			{Name: token.EQL, Val: "="},
+			{Name: token.INT, Val: "5"},
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{Names: []string{"a"}},
+				},
+			),
+			Read: parse.SqlFromRelation(
+				&parse.SqlQuery{
+					Projection: parse.SqlSelectRelation(
+						[]parse.SqlExpr{
+							&parse.SqlIdentifier{Names: []string{"a"}},
+						},
+					),
+					Read: parse.SqlFromRelation(
+						&parse.SqlQuery{
+							Projection: parse.SqlSelectRelation(
+								[]parse.SqlExpr{
+									&parse.SqlIdentifier{Names: []string{"a"}},
+								},
+							),
+							Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"b"}}),
+						},
+					),
+				},
+			),
+			Filter: parse.SqlWhereRelation(
+				&parse.SqlBinaryExpr{
+					Left:  &parse.SqlIdentifier{Names: []string{"b", "c"}},
+					Op:    "=",
+					Right: &parse.SqlIntLiteral{Value: 5},
+				},
+			),
+		},
+	},
 }
 
 func TestQueryParser(t *testing.T) {
@@ -259,9 +393,8 @@ func TestQueryParser(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+				require.Equal(t, tc.Expected, query)
 			}
-
-			require.Equal(t, tc.Expected, query)
 		})
 	}
 }

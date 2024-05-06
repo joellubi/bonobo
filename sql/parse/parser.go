@@ -8,7 +8,11 @@ import (
 	"github.com/backdeck/backdeck/query/sql/token"
 )
 
-var ErrEndOfTokenStream = errors.New("parse: end of token stream")
+var (
+	ErrEndOfTokenStream     = errors.New("parse: end of token stream")
+	ErrUnexpectedOpenParen  = errors.New("parse: unexpected opening paren")
+	ErrUnexpectedCloseParen = errors.New("parse: unexpected closing paren")
+)
 
 type SqlNode interface {
 	Children() []SqlNode
@@ -22,15 +26,20 @@ type PrattParser interface {
 }
 
 func Parse(tokens token.TokenStream) (*SqlQuery, error) {
-	var bldr SqlQueryBuilder
+	var (
+		block SqlExpr
+		bldr  SqlQueryBuilder
+		err   error
+	)
+
 	parser := NewExprParser(tokens)
 	for {
-		block, err := parser.Parse(token.HighestPrec)
+		block, err = parser.Parse(token.HighestPrec)
 		if err == ErrEndOfTokenStream {
-			break
+			return bldr.Query(), nil
 		}
 		if err != nil {
-			return nil, err
+			return bldr.Query(), err
 		}
 
 		switch b := block.(type) {
@@ -44,8 +53,6 @@ func Parse(tokens token.TokenStream) (*SqlQuery, error) {
 			return nil, fmt.Errorf("parse: expected valid sql relation, found %[1]T: %[1]s", b)
 		}
 	}
-
-	return bldr.Query(), nil
 }
 
 func NewExprParser(tokens token.TokenStream) PrattParser {
@@ -149,7 +156,7 @@ func (p *exprParser) consumeLeftParens() error {
 			p.depth++
 			p.tokens.Next()
 		case token.RPAREN:
-			return fmt.Errorf("parse: unexpected token: %s", tok.String())
+			return fmt.Errorf("%w: %s", ErrUnexpectedCloseParen, tok.String())
 		default:
 			return nil
 		}
@@ -157,11 +164,11 @@ func (p *exprParser) consumeLeftParens() error {
 }
 
 func (p *exprParser) consumeRightParens() error {
-	for {
+	for p.depth > 0 {
 		tok, _ := p.tokens.Peek()
 		switch tok.Name {
 		case token.LPAREN:
-			return fmt.Errorf("parse: unexpected token: %s", tok.String())
+			return fmt.Errorf("%w: %s", ErrUnexpectedOpenParen, tok.String())
 		case token.RPAREN:
 			p.depth--
 			p.tokens.Next()
@@ -169,6 +176,7 @@ func (p *exprParser) consumeRightParens() error {
 			return nil
 		}
 	}
+	return nil
 }
 
 func (p *exprParser) parseSelect() (*sqlSelectRelation, error) {
@@ -199,7 +207,20 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 	case token.IDENT:
 		return p.parseIdentifier()
 	case token.LPAREN:
-		return nil, fmt.Errorf("unimplemented: FROM subquery")
+		if _, err := p.expectToken(token.LPAREN); err != nil {
+			return nil, err
+		}
+
+		subquery, err := Parse(p.tokens)
+		if !errors.Is(err, ErrUnexpectedCloseParen) {
+			return nil, err
+		}
+
+		if _, err := p.expectToken(token.RPAREN); err != nil {
+			return nil, err
+		}
+
+		return subquery, nil
 	}
 
 	return nil, fmt.Errorf("parse: unexpected token: %s", tok.String())

@@ -19,7 +19,7 @@ func (tok Token) IsKeyword() bool  { return keyword_beg < tok.Name && tok.Name <
 // Precedence implements Token.
 func (tok *Token) Precedence() int {
 	switch tok.Name {
-	case LSS, GTR:
+	case LSS, GTR, EQL, LEQ, GEQ:
 		return 40
 	case ADD, SUB:
 		return 50
