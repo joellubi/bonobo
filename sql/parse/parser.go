@@ -212,6 +212,9 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 		}
 
 		subquery, err := Parse(p.tokens)
+		if err == nil {
+			return nil, fmt.Errorf("parse: subquery was not closed")
+		}
 		if !errors.Is(err, ErrUnexpectedCloseParen) {
 			return nil, err
 		}
