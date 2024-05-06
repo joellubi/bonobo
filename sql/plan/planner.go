@@ -39,7 +39,10 @@ func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 }
 
 func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
-	var plan engine.Relation
+	var (
+		plan engine.Relation
+		err  error
+	)
 
 	if query.Read != nil {
 		switch t := query.Read.Table.(type) {
@@ -47,7 +50,10 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 			table := engine.NewNamedTable(t.Names, nil)
 			plan = engine.NewReadOperation(table)
 		case *parse.SqlQuery:
-			return nil, fmt.Errorf("plan: Read from subquery unimplemented")
+			plan, err = CreateLogicalPlan(t)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("plan: unrecognized SqlExpr type for Read operation: %T", t)
 		}

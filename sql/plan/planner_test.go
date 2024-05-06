@@ -79,6 +79,31 @@ var testcases = []struct {
 			).
 			LogicalPlan(),
 	},
+	{
+		Name: "select_from_named_table_subquery",
+		Input: &parse.SqlQuery{
+			Read: parse.SqlFromRelation(
+				&parse.SqlQuery{
+					Projection: parse.SqlSelectRelation(
+						[]parse.SqlExpr{
+							&parse.SqlIdentifier{Names: []string{"a"}},
+						},
+					),
+					Read: parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"b"}}),
+				},
+			),
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{Names: []string{"a"}},
+				},
+			),
+		},
+		Expected: df.QueryContext().
+			Read(engine.NewNamedTable([]string{"b"}, nil)).
+			Select(engine.NewColumnExpr("a")).
+			Select(engine.NewColumnExpr("a")).
+			LogicalPlan(),
+	},
 }
 
 func TestPlanner(t *testing.T) {
