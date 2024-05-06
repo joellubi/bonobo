@@ -127,7 +127,7 @@ func (p *exprParser) ParsePrefix() (SqlExpr, error) {
 
 // ParseInfix implements Parser.
 func (p *exprParser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
-	tok, more := p.tokens.Peek()
+	tok, more := p.tokens.Next()
 	if !more {
 		return nil, ErrEndOfTokenStream
 	}
@@ -135,7 +135,6 @@ func (p *exprParser) ParseInfix(left SqlExpr, precedence int) (SqlExpr, error) {
 		return nil, fmt.Errorf("parse: unexpected token: expected operator, found: %s", tok.String())
 	}
 
-	p.tokens.Next() // TODO: Can we just do Next above?
 	right, err := p.Parse(precedence)
 	if err != nil {
 		return nil, err
@@ -207,31 +206,36 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 	case token.IDENT:
 		return p.parseIdentifier()
 	case token.LPAREN:
-		if _, err := p.expectToken(token.LPAREN); err != nil {
-			return nil, err
-		}
-
-		subquery, err := Parse(p.tokens)
-		if err == nil {
-			return nil, fmt.Errorf("parse: subquery was not closed")
-		}
-		if !errors.Is(err, ErrUnexpectedCloseParen) {
-			return nil, err
-		}
-
-		if _, err := p.expectToken(token.RPAREN); err != nil {
-			return nil, err
-		}
-
-		alias, err := p.tryParseAlias()
-		if err == nil {
-			subquery.Alias = alias
-		}
-
-		return subquery, nil
+		return p.parseSubquery()
 	}
 
 	return nil, fmt.Errorf("parse: unexpected token: %s", tok.String())
+}
+
+func (p *exprParser) parseSubquery() (*SqlQuery, error) {
+	if _, err := p.expectToken(token.LPAREN); err != nil {
+		return nil, err
+	}
+
+	subquery, err := Parse(p.tokens)
+	if err == nil {
+		return nil, fmt.Errorf("parse: subquery was not closed")
+	}
+
+	if !errors.Is(err, ErrUnexpectedCloseParen) {
+		return nil, err
+	}
+
+	if _, err := p.expectToken(token.RPAREN); err != nil {
+		return nil, err
+	}
+
+	alias, err := p.tryParseAlias()
+	if err == nil {
+		subquery.Alias = alias
+	}
+
+	return subquery, nil
 }
 
 func (p *exprParser) parseWhere() (*sqlWhereRelation, error) {
@@ -245,12 +249,9 @@ func (p *exprParser) parseWhere() (*sqlWhereRelation, error) {
 func (p *exprParser) parseIdentifier(names ...string) (SqlExpr, error) {
 	var err error
 
-	if len(names) != 0 { // TODO
+	if len(names) > 0 {
 		// Partially-consumed identifier; already at end or period delimits next part
 		_, err = p.expectToken(token.PERIOD)
-		// if err != nil {
-		// 	return &SqlIdentifier{Names: names}, nil
-		// }
 	}
 
 	if err == nil {

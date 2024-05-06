@@ -97,8 +97,7 @@ func lexInitial(l *Lexer) stateFn {
 			return lexNumber
 		case isPeriod(r):
 			if isDigit(l.peek()) {
-				l.backup()
-				return lexNumber
+				return lexFloat
 			}
 			l.emit(PERIOD)
 		case isQuote(r):
@@ -135,10 +134,10 @@ func lexWord(l *Lexer) stateFn {
 	tok, isKeyword := LookupKeyword(l.cur())
 	if isKeyword {
 		l.emit(tok)
-		return lexInitial
+	} else {
+		l.emit(IDENT)
 	}
 
-	l.emit(IDENT)
 	return lexInitial
 }
 
