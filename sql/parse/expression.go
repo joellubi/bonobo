@@ -12,6 +12,7 @@ type SqlExpr interface {
 
 type SqlIdentifier struct {
 	Names []string
+	Alias string
 }
 
 func (*SqlIdentifier) Children() []SqlNode {

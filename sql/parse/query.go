@@ -3,6 +3,7 @@ package parse
 import "fmt"
 
 type SqlQuery struct {
+	Alias      string
 	Read       *sqlFromRelation
 	Projection *sqlSelectRelation
 	Filter     *sqlWhereRelation

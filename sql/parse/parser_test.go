@@ -381,6 +381,56 @@ var testcases = []struct {
 			),
 		},
 	},
+	{
+		Name: "SELECT a AS b, c d FROM (SELECT t.a, t.c FROM my_schema.my_table t) AS e",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT", Pos: 1},
+			{Name: token.IDENT, Val: "a", Pos: 2},
+			{Name: token.AS, Val: "AS", Pos: 3},
+			{Name: token.IDENT, Val: "b", Pos: 4},
+			{Name: token.COMMA, Val: ",", Pos: 5},
+			{Name: token.IDENT, Val: "c", Pos: 6},
+			{Name: token.IDENT, Val: "d", Pos: 7},
+			{Name: token.FROM, Val: "FROM", Pos: 8},
+			{Name: token.LPAREN, Val: "(", Pos: 9},
+			{Name: token.SELECT, Val: "SELECT", Pos: 10},
+			{Name: token.IDENT, Val: "t", Pos: 11},
+			{Name: token.PERIOD, Val: ".", Pos: 12},
+			{Name: token.IDENT, Val: "a", Pos: 13},
+			{Name: token.COMMA, Val: ",", Pos: 14},
+			{Name: token.IDENT, Val: "t", Pos: 15},
+			{Name: token.PERIOD, Val: ".", Pos: 16},
+			{Name: token.IDENT, Val: "c", Pos: 17},
+			{Name: token.FROM, Val: "FROM", Pos: 18},
+			{Name: token.IDENT, Val: "my_schema", Pos: 19},
+			{Name: token.PERIOD, Val: ".", Pos: 20},
+			{Name: token.IDENT, Val: "my_table", Pos: 21},
+			{Name: token.IDENT, Val: "t", Pos: 22},
+			{Name: token.RPAREN, Val: ")", Pos: 23},
+			{Name: token.AS, Val: "AS", Pos: 24},
+			{Name: token.IDENT, Val: "e", Pos: 25},
+		},
+		Expected: &parse.SqlQuery{
+			Projection: parse.SqlSelectRelation(
+				[]parse.SqlExpr{
+					&parse.SqlIdentifier{Names: []string{"a"}, Alias: "b"},
+					&parse.SqlIdentifier{Names: []string{"c"}, Alias: "d"},
+				},
+			),
+			Read: parse.SqlFromRelation(
+				&parse.SqlQuery{
+					Projection: parse.SqlSelectRelation(
+						[]parse.SqlExpr{
+							&parse.SqlIdentifier{Names: []string{"t", "a"}},
+							&parse.SqlIdentifier{Names: []string{"t", "c"}},
+						},
+					),
+					Read:  parse.SqlFromRelation(&parse.SqlIdentifier{Names: []string{"my_schema", "my_table"}, Alias: "t"}),
+					Alias: "e",
+				},
+			),
+		},
+	},
 }
 
 func TestQueryParser(t *testing.T) {

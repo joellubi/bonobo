@@ -223,6 +223,11 @@ func (p *exprParser) parseTableExpr() (SqlExpr, error) {
 			return nil, err
 		}
 
+		alias, err := p.tryParseAlias()
+		if err == nil {
+			subquery.Alias = alias
+		}
+
 		return subquery, nil
 	}
 
@@ -238,28 +243,39 @@ func (p *exprParser) parseWhere() (*sqlWhereRelation, error) {
 }
 
 func (p *exprParser) parseIdentifier(names ...string) (SqlExpr, error) {
-	if len(names) != 0 {
+	var err error
+
+	if len(names) != 0 { // TODO
 		// Partially-consumed identifier; already at end or period delimits next part
-		_, err := p.expectToken(token.PERIOD)
-		if err != nil {
-			return &SqlIdentifier{Names: names}, nil
-		}
-	}
-
-	for {
-		tok, err := p.expectToken(token.IDENT)
-		if err != nil {
-			return nil, err
-		}
-		names = append(names, tok.Val)
-
 		_, err = p.expectToken(token.PERIOD)
-		if err != nil {
-			break
+		// if err != nil {
+		// 	return &SqlIdentifier{Names: names}, nil
+		// }
+	}
+
+	if err == nil {
+		for {
+			tok, err := p.expectToken(token.IDENT)
+			if err != nil {
+				return nil, err
+			}
+			names = append(names, tok.Val)
+
+			_, err = p.expectToken(token.PERIOD)
+			if err != nil {
+				break
+			}
 		}
 	}
 
-	return &SqlIdentifier{Names: names}, nil
+	identifier := SqlIdentifier{Names: names}
+
+	alias, err := p.tryParseAlias()
+	if err == nil {
+		identifier.Alias = alias
+	}
+
+	return &identifier, nil
 }
 
 func (p *exprParser) parseExprList() ([]SqlExpr, error) {
@@ -299,6 +315,12 @@ func (p *exprParser) parseExpr() (SqlExpr, error) {
 	}
 
 	return expr, nil
+}
+
+func (p *exprParser) tryParseAlias() (string, error) {
+	p.expectToken(token.AS) // Doesn't matter if there is an error or not
+	tok, err := p.expectToken(token.IDENT)
+	return tok.Val, err
 }
 
 func (p *exprParser) expectToken(tok token.TokenName) (token.Token, error) {
