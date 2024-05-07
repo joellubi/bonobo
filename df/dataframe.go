@@ -13,39 +13,36 @@ type DataFrame interface {
 	LogicalPlan() engine.Relation
 }
 
-func QueryContext() *executionContext {
-	return &executionContext{}
+func QueryContext() *queryContext {
+	return &queryContext{}
 }
 
-type executionContext struct {
-	// ctx   context.Context
-	// alloc memory.Allocator
-}
+type queryContext struct{}
 
-func (execCtx *executionContext) Read(table engine.Table) DataFrame {
+func (execCtx *queryContext) Read(table engine.Table) DataFrame {
 	r := engine.NewReadOperation(table)
 
-	return dataframeImpl{plan: r, exec: execCtx}
+	return dataframe{plan: r, exec: execCtx}
 }
 
-type dataframeImpl struct {
+type dataframe struct {
 	plan engine.Relation
-	exec *executionContext
+	exec *queryContext
 }
 
-func (df dataframeImpl) Select(exprs ...engine.Expr) DataFrame {
+func (df dataframe) Select(exprs ...engine.Expr) DataFrame {
 	df.plan = engine.NewProjectionOperation(df.plan, exprs)
 	return df
 }
 
-func (df dataframeImpl) Filter(expr engine.Expr) DataFrame {
+func (df dataframe) Filter(expr engine.Expr) DataFrame {
 	df.plan = engine.NewSelectionOperation(df.plan, expr)
 	return df
 }
 
-func (df dataframeImpl) Schema() (*arrow.Schema, error) { return df.plan.Schema() }
+func (df dataframe) Schema() (*arrow.Schema, error) { return df.plan.Schema() }
 
-func (df dataframeImpl) LogicalPlan() engine.Relation { return df.plan }
+func (df dataframe) LogicalPlan() engine.Relation { return df.plan }
 
 var (
 	ColIdx = engine.NewColumnIndexExpr
