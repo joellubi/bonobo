@@ -287,7 +287,7 @@ func FromProto(plan *proto.Plan) (*Plan, error) {
 				return nil, fmt.Errorf("cannot unmarshall plan with multiple root relations: unsupported")
 			}
 
-			rootRelation, err = bldr.Rel(t.Root.Input)
+			rootRelation, err = bldr.RelRoot(t.Root.Input, t.Root.Names)
 			if err != nil {
 				return nil, err
 			}
@@ -307,6 +307,37 @@ func FromProto(plan *proto.Plan) (*Plan, error) {
 
 type planBuilder struct {
 	extensions substrait.ExtensionRegistry
+}
+
+func (bldr *planBuilder) RelRoot(rel *proto.Rel, names []string) (Relation, error) {
+	r, err := bldr.Rel(rel)
+	if err != nil {
+		return nil, err
+	}
+
+	schema, err := r.Schema()
+	if err != nil {
+		return nil, err
+	}
+
+	var aliasing bool
+	for i, field := range schema.Fields() {
+		if names[i] != field.Name {
+			aliasing = true
+			break
+		}
+	}
+
+	if aliasing {
+		exprs := make([]Expr, schema.NumFields())
+		for i := 0; i < schema.NumFields(); i++ {
+			exprs[i] = NewAliasExpr(NewColumnIndexExpr(i), names[i])
+		}
+
+		r = NewProjectionOperation(r, exprs)
+	}
+
+	return r, nil
 }
 
 func (bldr *planBuilder) Rel(rel *proto.Rel) (Relation, error) {

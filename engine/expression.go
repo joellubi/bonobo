@@ -262,6 +262,37 @@ func (expr *Literal) ToProto(input Relation, extensions *substrait.ExtensionRegi
 	}, nil
 }
 
+func NewAliasExpr(expr Expr, name string) *Alias {
+	return &Alias{child: expr, alias: name}
+}
+
+type Alias struct {
+	child Expr
+	alias string
+}
+
+// Field implements Expr.
+func (expr *Alias) Field(input Relation) (arrow.Field, error) {
+	field, err := expr.child.Field(input)
+	if err != nil {
+		return arrow.Field{}, err
+	}
+
+	field.Name = expr.alias
+	return field, nil
+}
+
+// String implements Expr.
+func (expr *Alias) String() string {
+	return fmt.Sprintf("%s AS %s", expr.child.String(), expr.alias)
+}
+
+// ToProto implements Expr.
+func (expr *Alias) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
+	return expr.child.ToProto(input, extensions)
+}
+
 var _ Expr = (*Column)(nil)
 var _ Expr = (*ColumnIndex)(nil)
 var _ Expr = (*Literal)(nil)
+var _ Expr = (*Alias)(nil)

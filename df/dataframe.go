@@ -50,6 +50,8 @@ func (df dataframeImpl) LogicalPlan() engine.Relation { return df.plan }
 var (
 	ColIdx = engine.NewColumnIndexExpr
 	Lit    = engine.NewLiteralExpr
+	Col    = engine.NewColumnExpr
+	As     = engine.NewAliasExpr
 
 	Add = engine.Add
 )

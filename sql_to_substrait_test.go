@@ -75,6 +75,14 @@ var sqltestcases = []struct {
 		Name:  "read_project_filter",
 		Query: "SELECT col1, col2 FROM test_db.main.table1 WHERE col1",
 	},
+	{
+		Name:  "read_project_filter_subquery",
+		Query: "SELECT col1, col2 FROM (SELECT col1, col2 FROM test_db.main.table1 WHERE col1)",
+	},
+	{
+		Name:  "alias_column_names",
+		Query: "SELECT col1 AS first, col2 second FROM test_db.main.table1",
+	},
 }
 
 func TestSqlToSubstrait(t *testing.T) {

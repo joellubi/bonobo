@@ -14,7 +14,13 @@ func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 			return nil, fmt.Errorf("unimplemented: multi-part column identifier: %s", e.Names)
 		}
 
-		return engine.NewColumnExpr(e.Names[0]), nil
+		var ident engine.Expr
+		ident = engine.NewColumnExpr(e.Names[0])
+		if e.Alias != "" {
+			ident = engine.NewAliasExpr(ident, e.Alias)
+		}
+
+		return ident, nil
 	case *parse.SqlIntLiteral:
 		return engine.NewLiteralExpr(e.Value), nil
 	case *parse.SqlBinaryExpr:
