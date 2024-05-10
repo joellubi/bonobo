@@ -323,6 +323,15 @@ func (p *exprParser) parseExpr() (SqlExpr, error) {
 		return nil, fmt.Errorf("parse: invalid expression, unmatched parentheses")
 	}
 
+	alias, found, err := p.tryParseAlias()
+	if err != nil {
+		return nil, err
+	}
+
+	if found {
+		expr = &SqlAlias{Name: alias, Input: expr}
+	}
+
 	return expr, nil
 }
 

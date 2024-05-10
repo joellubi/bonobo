@@ -83,6 +83,10 @@ var sqltestcases = []struct {
 		Name:  "alias_column_names",
 		Query: "SELECT col1 AS first, col2 second FROM test_db.main.table1",
 	},
+	{
+		Name:  "alias_addition_expr",
+		Query: "SELECT 1 + 2 AS three",
+	},
 }
 
 func TestSqlToSubstrait(t *testing.T) {

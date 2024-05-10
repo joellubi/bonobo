@@ -39,6 +39,13 @@ func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 		}
 
 		return engine.NewFunctionExpr(functionID.URI, functionID.Name, left, right), nil
+	case *parse.SqlAlias:
+		input, err := CreateLogicalExpr(e.Input)
+		if err != nil {
+			return nil, err
+		}
+
+		return engine.NewAliasExpr(input, e.Name), nil
 	default:
 		return nil, fmt.Errorf("plan: unrecognized SqlExpr type: %T", e)
 	}

@@ -85,8 +85,22 @@ func (e *SqlFunctionExpr) String() string {
 	return fmt.Sprintf("%s(%s)", e.Name, strings.Join(args, ", "))
 }
 
+type SqlAlias struct {
+	Name  string
+	Input SqlExpr
+}
+
+func (e *SqlAlias) Children() []SqlNode {
+	return []SqlNode{e.Input}
+}
+
+func (e *SqlAlias) String() string {
+	return fmt.Sprintf("%s AS %s", e.Input.String(), e.Name)
+}
+
 var _ SqlExpr = (*SqlIdentifier)(nil)
 var _ SqlExpr = (*SqlStringLiteral)(nil)
 var _ SqlExpr = (*SqlIntLiteral)(nil)
 var _ SqlExpr = (*SqlBinaryExpr)(nil)
 var _ SqlExpr = (*SqlFunctionExpr)(nil)
+var _ SqlExpr = (*SqlAlias)(nil)
