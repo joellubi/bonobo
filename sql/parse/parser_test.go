@@ -431,6 +431,15 @@ var testcases = []struct {
 			),
 		},
 	},
+	{
+		Name: "SELECT a AS",
+		Input: []token.Token{
+			{Name: token.SELECT, Val: "SELECT", Pos: 1},
+			{Name: token.IDENT, Val: "a", Pos: 2},
+			{Name: token.AS, Val: "AS", Pos: 3},
+		},
+		Error: true,
+	},
 }
 
 func TestQueryParser(t *testing.T) {

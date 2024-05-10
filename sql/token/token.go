@@ -158,6 +158,10 @@ func operatorsStartingWith(r ...rune) []TokenName {
 		return nil
 	}
 
+	if int(r[0]) >= len(operatorLookup) {
+		return nil
+	}
+
 	tokens := operatorLookup[r[0]]
 	if len(tokens) < 2 || len(r) < 2 {
 		return tokens

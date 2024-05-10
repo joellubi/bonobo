@@ -230,8 +230,12 @@ func (p *exprParser) parseSubquery() (*SqlQuery, error) {
 		return nil, err
 	}
 
-	alias, err := p.tryParseAlias()
-	if err == nil {
+	alias, found, err := p.tryParseAlias()
+	if err != nil {
+		return nil, err
+	}
+
+	if found {
 		subquery.Alias = alias
 	}
 
@@ -271,8 +275,12 @@ func (p *exprParser) parseIdentifier(names ...string) (SqlExpr, error) {
 
 	identifier := SqlIdentifier{Names: names}
 
-	alias, err := p.tryParseAlias()
-	if err == nil {
+	alias, found, err := p.tryParseAlias()
+	if err != nil {
+		return nil, err
+	}
+
+	if found {
 		identifier.Alias = alias
 	}
 
@@ -318,10 +326,23 @@ func (p *exprParser) parseExpr() (SqlExpr, error) {
 	return expr, nil
 }
 
-func (p *exprParser) tryParseAlias() (string, error) {
-	p.expectToken(token.AS) // Doesn't matter if there is an error or not
+func (p *exprParser) tryParseAlias() (string, bool, error) {
+	var aliasing bool
+	_, err := p.expectToken(token.AS)
+	if err == nil {
+		aliasing = true
+	}
+
 	tok, err := p.expectToken(token.IDENT)
-	return tok.Val, err
+	if err == nil {
+		return tok.Val, true, nil
+	}
+
+	if aliasing {
+		return "", false, fmt.Errorf("expected valid identifier after AS, found: %s", tok.Val)
+	}
+
+	return "", false, nil
 }
 
 func (p *exprParser) expectToken(tok token.TokenName) (token.Token, error) {
