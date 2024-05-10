@@ -50,5 +50,5 @@ var (
 	Col    = engine.NewColumnExpr
 	As     = engine.NewAliasExpr
 
-	Add = engine.Add
+	Add = engine.NewAddFunctionExpr
 )

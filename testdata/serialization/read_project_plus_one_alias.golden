@@ -1,20 +1,31 @@
 Root Schema:
 schema:
-  fields: 5
-    - col1: type=bool
-    - col2: type=utf8
-    - col3: type=int64
-    - col4: type=decimal(38, 8)
-    - col5: type=date32
+  fields: 1
+    - custom_name: type=int64
 
 Proto:
 {
  "version": {},
+ "extension_uris": [
+  {
+   "extension_uri_anchor": 1,
+   "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+  }
+ ],
+ "extensions": [
+  {
+   "extension_function": {
+    "extension_uri_reference": 1,
+    "function_anchor": 1,
+    "name": "add:i64_i64"
+   }
+  }
+ ],
  "relations": [
   {
    "root": {
     "input": {
-     "filter": {
+     "project": {
       "input": {
        "read": {
         "base_schema": {
@@ -66,23 +77,42 @@ Proto:
         }
        }
       },
-      "condition": {
-       "selection": {
-        "direct_reference": {
-         "struct_field": {
-          "field": 1
+      "expressions": [
+       {
+        "scalar_function": {
+         "function_reference": 1,
+         "arguments": [
+          {
+           "value": {
+            "selection": {
+             "direct_reference": {
+              "struct_field": {
+               "field": 2
+              }
+             }
+            }
+           }
+          },
+          {
+           "value": {
+            "literal": {
+             "i64": "1"
+            }
+           }
+          }
+         ],
+         "output_type": {
+          "i64": {
+           "nullability": "NULLABILITY_REQUIRED"
+          }
          }
         }
        }
-      }
+      ]
      }
     },
     "names": [
-     "col1",
-     "col2",
-     "col3",
-     "col4",
-     "col5"
+     "custom_name"
     ]
    }
   }

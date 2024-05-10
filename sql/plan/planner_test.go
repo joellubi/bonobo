@@ -34,7 +34,7 @@ var testcases = []struct {
 		},
 		Expected: df.QueryContext().
 			Read(engine.NewNamedTable([]string{"b"}, nil)).
-			Select(engine.NewColumnExpr("a")).
+			Select(df.Col("a")).
 			LogicalPlan(),
 	},
 	{
@@ -51,8 +51,8 @@ var testcases = []struct {
 		Expected: df.QueryContext().
 			Read(engine.NewNamedTable([]string{"c"}, nil)).
 			Select(
-				engine.NewColumnExpr("a"),
-				engine.NewColumnExpr("b"),
+				df.Col("a"),
+				df.Col("b"),
 			).
 			LogicalPlan(),
 	},
@@ -74,8 +74,8 @@ var testcases = []struct {
 		Expected: df.QueryContext().
 			Read(engine.NewNamedTable([]string{"c"}, nil)).
 			Select(
-				engine.NewColumnExpr("a"),
-				engine.Add(engine.NewColumnExpr("b"), engine.NewLiteralExpr(1)),
+				df.Col("a"),
+				df.Add(df.Col("b"), df.Lit(1)),
 			).
 			LogicalPlan(),
 	},
@@ -100,8 +100,8 @@ var testcases = []struct {
 		},
 		Expected: df.QueryContext().
 			Read(engine.NewNamedTable([]string{"b"}, nil)).
-			Select(engine.NewColumnExpr("a")).
-			Select(engine.NewColumnExpr("a")).
+			Select(df.Col("a")).
+			Select(df.Col("a")).
 			LogicalPlan(),
 	},
 }

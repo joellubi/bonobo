@@ -83,7 +83,7 @@ Substrait Plan:
      }
     },
     "names": [
-     "add"
+     "add(add(1::int64, 2::int64), 3::int64)"
     ]
    }
   }

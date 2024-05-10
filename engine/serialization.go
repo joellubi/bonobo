@@ -41,12 +41,16 @@ func FormatPlan(plan *Plan) (string, error) {
 		return "", err
 	}
 
+	return FormatPlanProto(planProto)
+}
+
+func FormatPlanProto(plan *proto.Plan) (string, error) {
 	marshaller := protojson.MarshalOptions{
 		UseProtoNames: true,
 		// EmitUnpopulated: true,
 	}
 
-	data, err := marshaller.Marshal(planProto)
+	data, err := marshaller.Marshal(plan)
 	if err != nil {
 		return "", err
 	}
@@ -81,7 +85,7 @@ func schemaToNamedStruct(schema *arrow.Schema) (*proto.NamedStruct, error) {
 	types := make([]*proto.Type, schema.NumFields())
 	for i, field := range schema.Fields() {
 		names[i] = field.Name
-		types[i], err = protoTypeForArrowType(field.Type, field.Nullable)
+		types[i], err = ProtoTypeForArrowType(field.Type, field.Nullable)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +160,7 @@ func arrowTypeForProtoType(protoType *proto.Type) (arrow.DataType, bool, error) 
 	return arrowType, nullable, err
 }
 
-func protoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type, error) {
+func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type, error) {
 	nullability := proto.Type_NULLABILITY_REQUIRED
 	if nullable {
 		nullability = proto.Type_NULLABILITY_NULLABLE
@@ -415,11 +419,6 @@ func (bldr *planBuilder) ScalarFunctionExpr(expr *proto.Expression_ScalarFunctio
 		return nil, err
 	}
 
-	name, inputs, err := parseFunctionSignature(ext.Name)
-	if err != nil {
-		return nil, err
-	}
-
 	output, _, err := arrowTypeForProtoType(expr.GetOutputType())
 	if err != nil {
 		return nil, err
@@ -433,8 +432,7 @@ func (bldr *planBuilder) ScalarFunctionExpr(expr *proto.Expression_ScalarFunctio
 		}
 	}
 
-	impl := FunctionImplementation{URI: uri, Inputs: inputs, Output: output}
-	return NewFunctionWithImplAndArgs(name, impl, args...)
+	return NewAnonymousFunction(uri, ext.Name, output, args...)
 }
 
 func (bldr *planBuilder) FunctionArgumentExpr(expr *proto.FunctionArgument) (Expr, error) {

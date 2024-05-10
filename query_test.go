@@ -13,6 +13,7 @@ import (
 	"github.com/backdeck/backdeck/query/df"
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/stretchr/testify/require"
+	"github.com/substrait-io/substrait-go/proto"
 )
 
 var update = flag.Bool("update", false, "update golden files")
@@ -47,15 +48,22 @@ func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 
 var _ engine.Catalog = (*testCatalog)(nil)
 
-// var mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
 var testcases = []struct {
-	Name      string
-	DataFrame df.DataFrame
-	Catalog   engine.Catalog
+	Name           string
+	Input          df.DataFrame
+	ExpectedOutput df.DataFrame
+	Catalog        engine.Catalog
 }{
 	{
 		Name: "simple_read",
-		DataFrame: df.QueryContext().
+		Input: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			),
+		ExpectedOutput: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -66,7 +74,15 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_project",
-		DataFrame: df.QueryContext().
+		Input: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Select(df.ColIdx(1)),
+		ExpectedOutput: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -78,7 +94,16 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_filter_project",
-		DataFrame: df.QueryContext().
+		Input: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Filter(df.ColIdx(1)).
+			Select(df.ColIdx(1)),
+		ExpectedOutput: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -91,7 +116,15 @@ var testcases = []struct {
 	},
 	{
 		Name: "read_filter",
-		DataFrame: df.QueryContext().
+		Input: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Filter(df.ColIdx(1)),
+		ExpectedOutput: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -102,8 +135,16 @@ var testcases = []struct {
 		Catalog: &testCatalog{},
 	},
 	{
-		Name: "read_project_plus_one",
-		DataFrame: df.QueryContext().
+		Name: "read_project_plus_one", // TODO: Test serialize_deserialize
+		Input: df.QueryContext().
+			Read(
+				engine.NewNamedTable(
+					[]string{"test_db", "main", "table1"},
+					nil,
+				),
+			).
+			Select(df.Add(df.ColIdx(2), df.Lit(1))),
+		ExpectedOutput: df.QueryContext().
 			Read(
 				engine.NewNamedTable(
 					[]string{"test_db", "main", "table1"},
@@ -113,85 +154,96 @@ var testcases = []struct {
 			Select(df.Add(df.ColIdx(2), df.Lit(1))),
 		Catalog: &testCatalog{},
 	},
+	// {
+	// 	Name: "read_project_plus_one_alias",
+	// 	Input: df.QueryContext().
+	// 		Read(
+	// 			engine.NewNamedTable(
+	// 				[]string{"test_db", "main", "table1"},
+	// 				nil,
+	// 			),
+	// 		).
+	// 		Select(
+	// 			df.As(
+	// 				df.Add(df.ColIdx(2), df.Lit(1)),
+	// 				"custom_name",
+	// 			),
+	// 		),
+	// 	ExpectedOutput: df.QueryContext().
+	// 		Read(
+	// 			engine.NewNamedTable(
+	// 				[]string{"test_db", "main", "table1"},
+	// 				nil,
+	// 			),
+	// 		).
+	// 		Select(
+	// 			df.As(
+	// 				df.Add(df.ColIdx(2), df.Lit(1)),
+	// 				"custom_name",
+	// 			),
+	// 		),
+	// 	Catalog: &testCatalog{},
+	// },
 }
 
 func TestDataFrame(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
-			plan := tc.DataFrame.LogicalPlan()
+			plan := engine.NewPlan(tc.Input.LogicalPlan())
+			engine.SetCatalogForPlan(plan, tc.Catalog)
 
+			var planProto *proto.Plan
 			t.Run("serialize", func(t *testing.T) {
-				runTestSerialize(t, tc.Name, plan, tc.Catalog)
+				schema, err := plan.Relations()[0].Schema() // Expecting first relation is root, TODO: cleanup
+				require.NoError(t, err)
+
+				planProto, err = plan.ToProto()
+				require.NoError(t, err)
+
+				formatted, err := engine.FormatPlanProto(planProto)
+				require.NoError(t, err)
+
+				actual := []byte(
+					fmt.Sprintf(
+						"Root Schema:\n%s\n\nProto:\n%s",
+						schema,
+						formatted,
+					),
+				)
+
+				golden := filepath.Join("testdata", "serialization", tc.Name+".golden")
+				if *update {
+					err := os.WriteFile(golden, actual, 0644)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				expected, err := os.ReadFile(golden)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if !bytes.Equal(actual, expected) {
+					t.Errorf("formatted output does not match\nexpected: %s\nfound: %s", expected, actual)
+				}
 			})
 
-			t.Run("roundtrip", func(t *testing.T) {
-				runTestRoundTrip(t, tc.Name, plan, tc.Catalog)
+			t.Run("deserialize", func(t *testing.T) {
+				deserializedPlan, err := engine.FromProto(planProto)
+				require.NoError(t, err)
+				deserializedText, err := engine.FormatPlan(deserializedPlan)
+				require.NoError(t, err)
+
+				expectedPlan := engine.NewPlan(tc.ExpectedOutput.LogicalPlan())
+				engine.SetCatalogForPlan(expectedPlan, tc.Catalog)
+
+				expectedText, err := engine.FormatPlan(expectedPlan)
+				require.NoError(t, err)
+
+				require.Equal(t, expectedText, deserializedText)
 			})
 
 		})
 	}
-	// mem.AssertSize(t, 0)
-}
-
-func runTestSerialize(t *testing.T, name string, relation engine.Relation, catalog engine.Catalog) {
-	plan := engine.NewPlan(relation)
-	unboundRelText, err := engine.FormatPlan(plan)
-	if err != nil {
-		unboundRelText = fmt.Sprintf("Error %s", err.Error())
-	}
-
-	engine.SetCatalogForPlan(plan, catalog)
-
-	planSchema, err := relation.Schema()
-	require.NoError(t, err)
-
-	boundRelText, err := engine.FormatPlan(plan)
-	if err != nil {
-		boundRelText = fmt.Sprintf("Error: %s", err.Error())
-	}
-
-	actual := []byte(
-		fmt.Sprintf(
-			"Unbound Proto:\n%s\n\nBound Root Schema:\n%s\n\nBound Proto:\n%s",
-			unboundRelText,
-			planSchema,
-			boundRelText,
-		),
-	)
-
-	golden := filepath.Join("testdata", "serialization", name+".golden")
-	if *update {
-		err := os.WriteFile(golden, actual, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	expected, err := os.ReadFile(golden)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(actual, expected) {
-		t.Errorf("formatted output does not match\nexpected: %s\nfound: %s", expected, actual)
-	}
-}
-
-func runTestRoundTrip(t *testing.T, name string, relation engine.Relation, catalog engine.Catalog) {
-	plan := engine.NewPlan(relation)
-	engine.SetCatalogForPlan(plan, catalog)
-
-	p, err := plan.ToProto()
-	require.NoError(t, err)
-
-	planOut, err := engine.FromProto(p)
-	require.NoError(t, err)
-
-	planText, err := engine.FormatPlan(plan)
-	require.NoError(t, err)
-
-	planOutText, err := engine.FormatPlan(planOut)
-	require.NoError(t, err)
-
-	require.Equal(t, planText, planOutText)
 }

@@ -112,7 +112,7 @@ Substrait Plan:
      }
     },
     "names": [
-     "add"
+     "add(#col3, 3::int64)"
     ]
    }
   }

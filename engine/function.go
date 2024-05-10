@@ -1,8 +1,8 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/apache/arrow/go/v16/arrow"
@@ -10,138 +10,147 @@ import (
 	"github.com/substrait-io/substrait-go/proto"
 )
 
-type Function interface {
-	Expr
-	// Signature(input Relation) (string, error)
+var DefaultFunctionRepository = NewFunctionRepository()
+
+var ErrNoMatchingImplementation = errors.New("function: no implementation matching the provided arguments")
+
+func init() {
+	// TODO: Improve
+	DefaultFunctionRepository.RegisterImplementation("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", "add", &addI8Impl{})
+	DefaultFunctionRepository.RegisterImplementation("https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml", "add", &addI64Impl{})
 }
 
-type FunctionImplementation struct {
-	URI    string
-	Inputs []arrow.DataType
-	Output arrow.DataType
+func NewFunctionRepository() *functionRepository {
+	return &functionRepository{definitions: make(map[string]map[string][]FunctionImplementation, 0)}
 }
 
-type function struct { // TODO: Make concrete
-	name  string
-	args  []Expr
-	impls []FunctionImplementation
-	impl  *functionImpl
+func NewFunctionExpr(uri, name string, args ...Expr) *Function {
+	return &Function{
+		uri:        uri,
+		name:       name,
+		args:       args,
+		repository: DefaultFunctionRepository,
+	}
 }
 
-type functionImpl struct {
-	uri    string
-	inputs []arrow.DataType
-	output arrow.DataType
+func NewAddFunctionExpr(left, right Expr) *Function {
+	return NewFunctionExpr(
+		"https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+		"add",
+		left,
+		right,
+	)
 }
 
-func (f *function) resolveImpl(input Relation) (*functionImpl, error) {
-	if f.impl != nil {
-		return f.impl, nil
+func NewAnonymousFunction(uri, signature string, outputType arrow.DataType, args ...Expr) (*Function, error) {
+	repo := anonymousRepository{
+		impl: &anonymousFunctionImplementation{
+			signature:  signature,
+			outputType: outputType,
+		},
 	}
 
-	var err error
-	inputFields := make([]arrow.Field, len(f.args))
+	name, _, found := strings.Cut(signature, ":")
+	if !found {
+		return nil, fmt.Errorf("invalid function signature: %s", signature)
+	}
+
+	return &Function{
+		uri:        uri,
+		name:       name,
+		args:       args,
+		repository: &repo,
+	}, nil
+}
+
+// TODO: SetFunctionRepository
+type Function struct {
+	uri, name  string
+	args       []Expr
+	repository FunctionRepository
+}
+
+// Field implements Expr.
+func (f *Function) Field(input Relation) (arrow.Field, error) {
+	args := make([]arrow.DataType, len(f.args))
 	for i, arg := range f.args {
-		inputFields[i], err = arg.Field(input)
+		field, err := arg.Field(input)
 		if err != nil {
-			return nil, err
+			return arrow.Field{}, err
 		}
+		args[i] = field.Type
 	}
 
-outer:
-	for _, impl := range f.impls {
-		if len(inputFields) != len(impl.Inputs) {
-			continue
-		}
-		for i, field := range inputFields {
-			if field.Type.ID() != impl.Inputs[i].ID() {
-				continue outer
-			}
-		}
-
-		// Made it through the loop without any mismatches
-		f.impl = &functionImpl{uri: impl.URI, inputs: impl.Inputs, output: impl.Output}
-		return f.impl, nil
-	}
-
-	return nil, fmt.Errorf("no valid implementation for function: %s", f.String())
-}
-
-// Field implements Function.
-func (f *function) Field(input Relation) (arrow.Field, error) {
-	impl, err := f.resolveImpl(input)
+	impl, err := f.repository.GetImplementation(f.uri, f.name, args...)
 	if err != nil {
 		return arrow.Field{}, err
 	}
 
-	return arrow.Field{Name: f.name, Type: impl.output}, nil
-}
-
-func getFunctionSignature(name string, args ...arrow.DataType) (string, error) {
-	var err error
-	sigs := make([]string, len(args))
-	for i, arg := range args {
-		sigs[i], err = signatureNameForArgumentType(arg)
-		if err != nil {
-			return "", err
-		}
+	typ, nullable, err := impl.ReturnType(args...)
+	if err != nil {
+		return arrow.Field{}, err
 	}
 
-	return fmt.Sprintf("%s:%s", name, strings.Join(sigs, "_")), nil
+	return arrow.Field{Name: f.String(), Type: typ, Nullable: nullable}, nil
 }
 
-// String implements Function.
-func (f *function) String() string {
+// String implements Expr.
+func (f *Function) String() string {
 	args := make([]string, len(f.args))
 	for i, arg := range f.args {
 		args[i] = arg.String()
 	}
+
 	return fmt.Sprintf("%s(%s)", f.name, strings.Join(args, ", "))
 }
 
-// ToProto implements Function.
-func (f *function) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
-	impl, err := f.resolveImpl(input)
+// ToProto implements Expr.
+func (f *Function) ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error) {
+	args := make([]arrow.DataType, len(f.args))
+	for i, arg := range f.args {
+		field, err := arg.Field(input)
+		if err != nil {
+			return nil, err
+		}
+		args[i] = field.Type
+	}
+
+	impl, err := f.repository.GetImplementation(f.uri, f.name, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	outputField, err := f.Field(input)
+	typ, nullable, err := impl.ReturnType(args...)
 	if err != nil {
 		return nil, err
 	}
 
-	outputType, err := protoTypeForArrowType(outputField.Type, outputField.Nullable)
+	outputType, err := ProtoTypeForArrowType(typ, nullable)
 	if err != nil {
 		return nil, err
 	}
 
-	args := make([]*proto.FunctionArgument, len(f.args))
+	functionArgs := make([]*proto.FunctionArgument, len(f.args))
 	for i, arg := range f.args {
 		expr, err := arg.ToProto(input, extensions)
 		if err != nil {
 			return nil, err
 		}
 
-		args[i] = &proto.FunctionArgument{
+		functionArgs[i] = &proto.FunctionArgument{
 			ArgType: &proto.FunctionArgument_Value{
 				Value: expr,
 			},
 		}
 	}
 
-	sig, err := getFunctionSignature(f.name, impl.inputs...)
-	if err != nil {
-		return nil, err
-	}
-
-	ref := extensions.RegisterFunction(impl.uri, sig)
+	ref := extensions.RegisterFunction(f.uri, impl.Signature())
 
 	return &proto.Expression{
 		RexType: &proto.Expression_ScalarFunction_{
 			ScalarFunction: &proto.Expression_ScalarFunction{
 				FunctionReference: ref,
-				Arguments:         args,
+				Arguments:         functionArgs,
 				OutputType:        outputType,
 				Options:           []*proto.FunctionOption{}, // TODO
 			},
@@ -149,193 +158,127 @@ func (f *function) ToProto(input Relation, extensions *substrait.ExtensionRegist
 	}, nil
 }
 
-func getCanonicalFunctionName(name string) string {
-	for canonical, aliases := range FunctionAliases {
-		if name == canonical || slices.Contains(aliases, name) {
-			return canonical
-		}
-	}
-	return name
+type FunctionImplementation interface {
+	Signature() string
+	ReturnType(inputs ...arrow.DataType) (arrow.DataType, bool, error)
 }
 
-func getFunctionImplementations(name string) []FunctionImplementation {
-	switch name {
-	case "add":
-		return []FunctionImplementation{
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.Int8Type,
-					ArrowTypes.Int8Type,
-				},
-				Output: ArrowTypes.Int8Type,
-			},
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.Int16Type,
-					ArrowTypes.Int16Type,
-				},
-				Output: ArrowTypes.Int16Type,
-			},
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.Int32Type,
-					ArrowTypes.Int32Type,
-				},
-				Output: ArrowTypes.Int32Type,
-			},
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.Int64Type,
-					ArrowTypes.Int64Type,
-				},
-				Output: ArrowTypes.Int64Type,
-			},
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.FloatType,
-					ArrowTypes.FloatType,
-				},
-				Output: ArrowTypes.FloatType,
-			},
-			{
-				URI: "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
-				Inputs: []arrow.DataType{
-					ArrowTypes.DoubleType,
-					ArrowTypes.DoubleType,
-				},
-				Output: ArrowTypes.DoubleType,
-			},
-		}
-	default:
-		return nil
-	}
+type addI8Impl struct{}
+
+func (impl *addI8Impl) Signature() string {
+	return "add:i8_i8"
 }
 
-func NewFunctionWithArgs(name string, args ...Expr) (Function, error) {
-	canonicalName := getCanonicalFunctionName(name)
-	impls := getFunctionImplementations(canonicalName)
+func (impl *addI8Impl) ReturnType(inputs ...arrow.DataType) (arrow.DataType, bool, error) {
+	if len(inputs) != 2 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
 
-	return &function{
-		name:  canonicalName,
-		args:  args,
-		impls: impls,
-	}, nil
-}
-
-func NewFunctionWithImplAndArgs(name string, impl FunctionImplementation, args ...Expr) (Function, error) {
-	canonicalName := getCanonicalFunctionName(name)
-
-	return &function{
-		name:  canonicalName,
-		args:  args,
-		impls: []FunctionImplementation{impl},
-	}, nil
-}
-
-func Add(left, right Expr) Function {
-	name := "add"
-	f, err := NewFunctionWithArgs(name, left, right)
-	if err != nil {
-		panic(fmt.Sprintf("invalid definition for function %s: %s", name, err))
 	}
 
-	return f
-}
-
-type ScalarFunction struct {
-	Name        string               `json:"name"`
-	Description string               `json:"description"`
-	Impls       []ScalarFunctionImpl `json:"impls"`
-}
-
-type ScalarFunctionImpl struct {
-	Args   []ValueArgument `json:"args"`
-	Return string          `json:"return"`
-}
-
-type ValueArgument struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-var KnownFunctions = []ScalarFunction{
-	{
-		Name:        "add",
-		Description: "Add two values.",
-		Impls: []ScalarFunctionImpl{
-			{
-				Args: []ValueArgument{
-					{
-						Name:  "x",
-						Value: "i8",
-					},
-					{
-						Name:  "y",
-						Value: "i8",
-					},
-				},
-			},
-		},
-	},
-}
-
-var FunctionAliases = map[string][]string{
-	"add": {"+"},
-}
-
-func signatureNameForArgumentType(typ arrow.DataType) (string, error) {
-	switch typ.ID() {
-	case ArrowTypes.Int8Type.ID():
-		return "i8", nil
-	case ArrowTypes.Int16Type.ID():
-		return "i16", nil
-	case ArrowTypes.Int32Type.ID():
-		return "i32", nil
-	case ArrowTypes.Int64Type.ID():
-		return "i64", nil
-	default:
-		return "", fmt.Errorf("function argument: unrecognized arrow type: %s", typ.Name())
-	}
-}
-
-var signatureNameToType = map[string]arrow.DataType{
-	"i8":  ArrowTypes.Int8Type,
-	"i16": ArrowTypes.Int16Type,
-	"i32": ArrowTypes.Int32Type,
-	"i64": ArrowTypes.Int64Type,
-}
-
-func argumentTypeForSignatureName(name string) (arrow.DataType, error) {
-	typ, found := signatureNameToType[name]
-	if !found {
-		return nil, fmt.Errorf("unrecognized type signature name: %s", name)
+	if inputs[0].ID() != arrow.INT8 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
 	}
 
-	return typ, nil
-}
-
-func parseFunctionSignature(signature string) (string, []arrow.DataType, error) {
-	name, argsPart, found := strings.Cut(signature, ":")
-	if !found {
-		return "", nil, fmt.Errorf("failed to parse function signature: %s", signature)
+	if inputs[1].ID() != arrow.INT8 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
 	}
 
-	var err error
-	args := strings.Split(argsPart, "_")
-	types := make([]arrow.DataType, len(args))
-	for i, arg := range args {
-		types[i], err = argumentTypeForSignatureName(arg)
-		if err != nil {
-			return "", nil, err
+	return ArrowTypes.Int8Type, false, nil
+}
+
+type addI64Impl struct{}
+
+func (impl *addI64Impl) Signature() string {
+	return "add:i64_i64"
+}
+
+func (impl *addI64Impl) ReturnType(inputs ...arrow.DataType) (arrow.DataType, bool, error) {
+	if len(inputs) != 2 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
+
+	}
+
+	if inputs[0].ID() != arrow.INT64 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
+	}
+
+	if inputs[1].ID() != arrow.INT64 {
+		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
+	}
+
+	return ArrowTypes.Int64Type, false, nil
+}
+
+type functionRepository struct {
+	definitions map[string]map[string][]FunctionImplementation
+}
+
+func (r *functionRepository) FunctionsForURI(uri string) map[string][]FunctionImplementation {
+	return r.definitions[uri]
+}
+
+func (r *functionRepository) FunctionImplementations(uri, name string) []FunctionImplementation {
+	return r.definitions[uri][name]
+}
+
+func (r *functionRepository) GetImplementation(uri, name string, args ...arrow.DataType) (FunctionImplementation, error) {
+	impls := r.definitions[uri][name]
+	for _, impl := range impls {
+		_, _, err := impl.ReturnType(args...)
+		if err == nil {
+			return impl, nil
 		}
 	}
 
-	return name, types, nil
+	return nil, ErrNoMatchingImplementation
 }
 
-var _ Function = (*function)(nil)
+func (r *functionRepository) RegisterImplementation(uri, name string, impl FunctionImplementation) {
+	_, ok := r.definitions[uri]
+	if !ok {
+		r.definitions[uri] = make(map[string][]FunctionImplementation, 0)
+	}
+
+	_, ok = r.definitions[uri][name]
+	if !ok {
+		r.definitions[uri][name] = make([]FunctionImplementation, 0)
+	}
+
+	r.definitions[uri][name] = append(r.definitions[uri][name], impl)
+}
+
+type FunctionRepository interface {
+	GetImplementation(uri, name string, args ...arrow.DataType) (FunctionImplementation, error)
+}
+
+type anonymousRepository struct {
+	impl FunctionImplementation
+}
+
+// GetImplementation implements FunctionRepository.
+func (r *anonymousRepository) GetImplementation(uri string, name string, args ...arrow.DataType) (FunctionImplementation, error) {
+	return r.impl, nil
+}
+
+var _ FunctionRepository = (*functionRepository)(nil)
+var _ FunctionRepository = (*anonymousRepository)(nil)
+
+type anonymousFunctionImplementation struct {
+	signature  string
+	outputType arrow.DataType
+}
+
+// ReturnType implements FunctionImplementation.
+func (f *anonymousFunctionImplementation) ReturnType(inputs ...arrow.DataType) (arrow.DataType, bool, error) {
+	return f.outputType, false, nil
+}
+
+// Signature implements FunctionImplementation.
+func (f *anonymousFunctionImplementation) Signature() string {
+	return f.signature
+}
+
+var _ Expr = (*Function)(nil)
+var _ FunctionImplementation = (*anonymousFunctionImplementation)(nil)
+var _ FunctionImplementation = (*addI8Impl)(nil)
+var _ FunctionImplementation = (*addI64Impl)(nil)

@@ -1,7 +1,4 @@
-Unbound Proto:
-Error engine: attempted to determine schema of table that has not been bound to a catalog yet
-
-Bound Root Schema:
+Root Schema:
 schema:
   fields: 5
     - col1: type=bool
@@ -10,7 +7,7 @@ schema:
     - col4: type=decimal(38, 8)
     - col5: type=date32
 
-Bound Proto:
+Proto:
 {
  "version": {},
  "relations": [

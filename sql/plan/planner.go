@@ -33,12 +33,12 @@ func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
 			return nil, err
 		}
 
-		f, err := engine.NewFunctionWithArgs(e.Op, left, right)
+		functionID, err := resolveFunctionID(e.Op)
 		if err != nil {
 			return nil, err
 		}
 
-		return f, nil
+		return engine.NewFunctionExpr(functionID.URI, functionID.Name, left, right), nil
 	default:
 		return nil, fmt.Errorf("plan: unrecognized SqlExpr type: %T", e)
 	}
@@ -89,4 +89,23 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 	}
 
 	return plan, nil
+}
+
+type FunctionID struct {
+	URI, Name string
+}
+
+// TODO: Might need to know args to pick function if operator is overloaded
+func resolveFunctionID(op string) (FunctionID, error) {
+	switch op {
+	case "+":
+		return Add, nil
+	default:
+		return FunctionID{}, fmt.Errorf("cannot resolve function for operator: %s", op)
+	}
+}
+
+var Add = FunctionID{
+	URI:  "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
+	Name: "add",
 }

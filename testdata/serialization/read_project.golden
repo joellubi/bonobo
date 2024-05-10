@@ -1,12 +1,9 @@
-Unbound Proto:
-Error engine: attempted to determine schema of table that has not been bound to a catalog yet
-
-Bound Root Schema:
+Root Schema:
 schema:
   fields: 1
     - col2: type=utf8
 
-Bound Proto:
+Proto:
 {
  "version": {},
  "relations": [
