@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/backdeck/backdeck/query/engine"
 	"github.com/backdeck/backdeck/query/sql"
 	"github.com/stretchr/testify/require"
