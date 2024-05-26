@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joellubi/bonobo/substrait"
+
 	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/backdeck/backdeck/query/substrait"
 	"github.com/substrait-io/substrait-go/proto"
 )
 

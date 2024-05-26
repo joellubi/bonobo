@@ -9,9 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joellubi/bonobo/engine"
+	"github.com/joellubi/bonobo/sql"
+
 	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/backdeck/backdeck/query/engine"
-	"github.com/backdeck/backdeck/query/sql"
 	"github.com/stretchr/testify/require"
 )
 

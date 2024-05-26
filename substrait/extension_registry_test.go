@@ -3,7 +3,8 @@ package substrait_test
 import (
 	"testing"
 
-	"github.com/backdeck/backdeck/query/substrait"
+	"github.com/joellubi/bonobo/substrait"
+
 	"github.com/stretchr/testify/require"
 )
 

@@ -9,9 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joellubi/bonobo/df"
+	"github.com/joellubi/bonobo/engine"
+
 	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/backdeck/backdeck/query/df"
-	"github.com/backdeck/backdeck/query/engine"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/proto"
 )

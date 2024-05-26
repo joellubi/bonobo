@@ -1,7 +1,8 @@
 package engine
 
 import (
-	"github.com/backdeck/backdeck/query/substrait"
+	"github.com/joellubi/bonobo/substrait"
+
 	"github.com/substrait-io/substrait-go/proto"
 )
 

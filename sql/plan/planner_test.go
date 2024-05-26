@@ -3,10 +3,11 @@ package plan_test
 import (
 	"testing"
 
-	"github.com/backdeck/backdeck/query/df"
-	"github.com/backdeck/backdeck/query/engine"
-	"github.com/backdeck/backdeck/query/sql/parse"
-	"github.com/backdeck/backdeck/query/sql/plan"
+	"github.com/joellubi/bonobo/df"
+	"github.com/joellubi/bonobo/engine"
+	"github.com/joellubi/bonobo/sql/parse"
+	"github.com/joellubi/bonobo/sql/plan"
+
 	"github.com/stretchr/testify/require"
 )
 

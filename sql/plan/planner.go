@@ -3,8 +3,8 @@ package plan
 import (
 	"fmt"
 
-	"github.com/backdeck/backdeck/query/engine"
-	"github.com/backdeck/backdeck/query/sql/parse"
+	"github.com/joellubi/bonobo/engine"
+	"github.com/joellubi/bonobo/sql/parse"
 )
 
 func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {

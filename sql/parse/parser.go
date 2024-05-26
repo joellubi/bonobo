@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/backdeck/backdeck/query/sql/token"
+	"github.com/joellubi/bonobo/sql/token"
 )
 
 var (

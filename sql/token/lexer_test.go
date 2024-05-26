@@ -3,7 +3,8 @@ package token_test
 import (
 	"testing"
 
-	"github.com/backdeck/backdeck/query/sql/token"
+	"github.com/joellubi/bonobo/sql/token"
+
 	"github.com/stretchr/testify/require"
 )
 
