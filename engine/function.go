@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -184,7 +185,7 @@ func (impl *addI8Impl) ReturnType(inputs ...arrow.DataType) (arrow.DataType, boo
 		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
 	}
 
-	return ArrowTypes.Int8Type, false, nil
+	return bonobo.ArrowTypes.Int8Type, false, nil
 }
 
 type addI64Impl struct{}
@@ -207,7 +208,7 @@ func (impl *addI64Impl) ReturnType(inputs ...arrow.DataType) (arrow.DataType, bo
 		return nil, false, fmt.Errorf("provided arguments do not match the signature %s: %s", impl.Signature(), inputs)
 	}
 
-	return ArrowTypes.Int64Type, false, nil
+	return bonobo.ArrowTypes.Int64Type, false, nil
 }
 
 type functionRepository struct {

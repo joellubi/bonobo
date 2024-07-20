@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -125,34 +126,34 @@ func arrowTypeForProtoType(protoType *proto.Type) (arrow.DataType, bool, error) 
 	switch t := protoType.GetKind().(type) {
 	case *proto.Type_Bool:
 		nullability = t.Bool.GetNullability()
-		arrowType = ArrowTypes.BooleanType
+		arrowType = bonobo.ArrowTypes.BooleanType
 	case *proto.Type_I8_:
 		nullability = t.I8.GetNullability()
-		arrowType = ArrowTypes.Int8Type
+		arrowType = bonobo.ArrowTypes.Int8Type
 	case *proto.Type_I16_:
 		nullability = t.I16.GetNullability()
-		arrowType = ArrowTypes.Int16Type
+		arrowType = bonobo.ArrowTypes.Int16Type
 	case *proto.Type_I32_:
 		nullability = t.I32.GetNullability()
-		arrowType = ArrowTypes.Int32Type
+		arrowType = bonobo.ArrowTypes.Int32Type
 	case *proto.Type_I64_:
 		nullability = t.I64.GetNullability()
-		arrowType = ArrowTypes.Int64Type
+		arrowType = bonobo.ArrowTypes.Int64Type
 	case *proto.Type_Fp32:
 		nullability = t.Fp32.GetNullability()
-		arrowType = ArrowTypes.FloatType
+		arrowType = bonobo.ArrowTypes.FloatType
 	case *proto.Type_Fp64:
 		nullability = t.Fp64.GetNullability()
-		arrowType = ArrowTypes.DoubleType
+		arrowType = bonobo.ArrowTypes.DoubleType
 	case *proto.Type_String_:
 		nullability = t.String_.GetNullability()
-		arrowType = ArrowTypes.StringType
+		arrowType = bonobo.ArrowTypes.StringType
 	case *proto.Type_Decimal_:
 		nullability = t.Decimal.GetNullability()
-		arrowType = ArrowTypes.Decimal(t.Decimal.GetPrecision(), t.Decimal.GetScale())
+		arrowType = bonobo.ArrowTypes.Decimal(t.Decimal.GetPrecision(), t.Decimal.GetScale())
 	case *proto.Type_Date_:
 		nullability = t.Date.GetNullability()
-		arrowType = ArrowTypes.DateType
+		arrowType = bonobo.ArrowTypes.DateType
 	default:
 		err = fmt.Errorf("unsupported proto type: %s", protoType.GetKind())
 	}
@@ -168,7 +169,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 	}
 
 	switch arrowType.ID() {
-	case ArrowTypes.BooleanType.ID():
+	case bonobo.ArrowTypes.BooleanType.ID():
 		return &proto.Type{
 			Kind: &proto.Type_Bool{
 				Bool: &proto.Type_Boolean{
@@ -176,7 +177,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.Int8Type.ID():
+	case bonobo.ArrowTypes.Int8Type.ID():
 		return &proto.Type{
 			Kind: &proto.Type_I8_{
 				I8: &proto.Type_I8{
@@ -184,7 +185,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.Int16Type.ID():
+	case bonobo.ArrowTypes.Int16Type.ID():
 		return &proto.Type{
 			Kind: &proto.Type_I16_{
 				I16: &proto.Type_I16{
@@ -192,7 +193,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.Int32Type.ID():
+	case bonobo.ArrowTypes.Int32Type.ID():
 		return &proto.Type{
 			Kind: &proto.Type_I32_{
 				I32: &proto.Type_I32{
@@ -200,7 +201,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.Int64Type.ID():
+	case bonobo.ArrowTypes.Int64Type.ID():
 		return &proto.Type{
 			Kind: &proto.Type_I64_{
 				I64: &proto.Type_I64{
@@ -208,7 +209,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.FloatType.ID():
+	case bonobo.ArrowTypes.FloatType.ID():
 		return &proto.Type{
 			Kind: &proto.Type_Fp32{
 				Fp32: &proto.Type_FP32{
@@ -216,7 +217,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.DoubleType.ID():
+	case bonobo.ArrowTypes.DoubleType.ID():
 		return &proto.Type{
 			Kind: &proto.Type_Fp64{
 				Fp64: &proto.Type_FP64{
@@ -224,7 +225,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.StringType.ID():
+	case bonobo.ArrowTypes.StringType.ID():
 		return &proto.Type{
 			Kind: &proto.Type_String_{
 				String_: &proto.Type_String{
@@ -232,7 +233,7 @@ func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type
 				},
 			},
 		}, nil
-	case ArrowTypes.DateType.ID():
+	case bonobo.ArrowTypes.DateType.ID():
 		return &proto.Type{
 			Kind: &proto.Type_Date_{
 				Date: &proto.Type_Date{
