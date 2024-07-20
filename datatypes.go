@@ -1,4 +1,4 @@
-package engine
+package bonobo
 
 import (
 	"github.com/apache/arrow/go/v17/arrow"

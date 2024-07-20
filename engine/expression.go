@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -139,24 +140,24 @@ func NewLiteralExpr(val any) *Literal {
 
 	switch v := val.(type) {
 	case bool:
-		typ = ArrowTypes.BooleanType
+		typ = bonobo.ArrowTypes.BooleanType
 	case int8:
-		typ = ArrowTypes.Int8Type
+		typ = bonobo.ArrowTypes.Int8Type
 	case int16:
-		typ = ArrowTypes.Int16Type
+		typ = bonobo.ArrowTypes.Int16Type
 	case int32:
-		typ = ArrowTypes.Int32Type
+		typ = bonobo.ArrowTypes.Int32Type
 	case int64:
-		typ = ArrowTypes.Int64Type
+		typ = bonobo.ArrowTypes.Int64Type
 	case int:
-		typ = ArrowTypes.Int64Type
+		typ = bonobo.ArrowTypes.Int64Type
 		val = int64(v)
 	case float32:
-		typ = ArrowTypes.FloatType
+		typ = bonobo.ArrowTypes.FloatType
 	case float64:
-		typ = ArrowTypes.DoubleType
+		typ = bonobo.ArrowTypes.DoubleType
 	case string:
-		typ = ArrowTypes.StringType
+		typ = bonobo.ArrowTypes.StringType
 	default:
 		panic(fmt.Sprintf("invalid literal type: %T", v))
 	}

@@ -1,4 +1,4 @@
-package query_test
+package bonobo_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/engine"
 	"github.com/joellubi/bonobo/sql"
 
@@ -31,11 +32,11 @@ func (*sqlTestCatalog) Schema(identifier []string) (*arrow.Schema, error) {
 	case "test_db.main.table1":
 		schema = arrow.NewSchema(
 			[]arrow.Field{
-				{Name: "col1", Type: engine.ArrowTypes.BooleanType},
-				{Name: "col2", Type: engine.ArrowTypes.StringType},
-				{Name: "col3", Type: engine.ArrowTypes.Int64Type},
-				{Name: "col4", Type: engine.ArrowTypes.Decimal(38, 8)},
-				{Name: "col5", Type: engine.ArrowTypes.DateType},
+				{Name: "col1", Type: bonobo.ArrowTypes.BooleanType},
+				{Name: "col2", Type: bonobo.ArrowTypes.StringType},
+				{Name: "col3", Type: bonobo.ArrowTypes.Int64Type},
+				{Name: "col4", Type: bonobo.ArrowTypes.Decimal(38, 8)},
+				{Name: "col5", Type: bonobo.ArrowTypes.DateType},
 			},
 			nil,
 		)
