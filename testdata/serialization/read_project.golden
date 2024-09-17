@@ -1,7 +1,5 @@
 Root Schema:
-schema:
-  fields: 1
-    - col2: type=utf8
+NSTRUCT<col2: string>
 
 Proto:
 {
@@ -41,7 +39,8 @@ Proto:
            {
             "decimal": {
              "scale": 8,
-             "precision": 38
+             "precision": 38,
+             "nullability": "NULLABILITY_REQUIRED"
             }
            },
            {

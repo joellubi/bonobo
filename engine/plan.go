@@ -11,9 +11,10 @@ func NewPlan(root Relation, rels ...Relation) *Plan {
 }
 
 type Plan struct {
+	root      Relation
+	relations []Relation
+
 	extensions substrait.ExtensionRegistry
-	root       Relation
-	relations  []Relation
 }
 
 func (p *Plan) Relations() []Relation {
@@ -28,11 +29,6 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 			return nil, err
 		}
 
-		names := make([]string, schema.NumFields())
-		for i, field := range schema.Fields() {
-			names[i] = field.Name
-		}
-
 		protoRel, err := rel.ToProto(&p.extensions)
 		if err != nil {
 			return nil, err
@@ -41,7 +37,7 @@ func (p *Plan) ToProto() (*proto.Plan, error) {
 			RelType: &proto.PlanRel_Root{
 				Root: &proto.RelRoot{
 					Input: protoRel,
-					Names: names,
+					Names: schema.Names,
 				},
 			},
 		}

@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 )
 
 var (
@@ -15,12 +17,12 @@ var (
 )
 
 type Table interface {
-	Schema() (*arrow.Schema, error)
+	Schema() (*bonobo.Schema, error)
 	ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error)
 }
 
 type Catalog interface {
-	Schema(identifier Identifier) (*arrow.Schema, error)
+	Schema(identifier Identifier) (*bonobo.Schema, error)
 }
 
 type Identifier = []string
@@ -50,7 +52,7 @@ func (t *namedTable) SetCatalog(catalog Catalog) {
 	t.catalog = catalog
 }
 
-func (t *namedTable) Schema() (*arrow.Schema, error) {
+func (t *namedTable) Schema() (*bonobo.Schema, error) {
 	if t.catalog == nil {
 		return nil, ErrUnboundTable
 	}
@@ -65,9 +67,7 @@ func (t *namedTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Re
 	// serialize the plan and just omit the schema
 	schema, err := t.Schema()
 	if err == nil {
-		if baseSchema, err = schemaToNamedStruct(schema); err != nil {
-			return nil, err
-		}
+		baseSchema = types.NamedStruct(*schema).ToProto()
 	}
 
 	return &proto.Rel{
@@ -92,12 +92,12 @@ type virtualTable struct {
 	rec arrow.Record
 }
 
-func (t *virtualTable) Schema() (*arrow.Schema, error) {
+func (t *virtualTable) Schema() (*bonobo.Schema, error) {
 	if t.rec == nil {
-		return arrow.NewSchema(nil, nil), nil
+		return bonobo.NewSchema(nil), nil
 	}
 
-	return t.rec.Schema(), nil
+	return nil, fmt.Errorf("engine: virtual table from arrow record is not yet implemented")
 }
 
 func (t *virtualTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error) {
@@ -118,15 +118,15 @@ func (t *virtualTable) ToProto(extensions *substrait.ExtensionRegistry) (*proto.
 	}, nil
 }
 
-func NewAnonymousCatalog(schema *arrow.Schema) *anonymousCatalog {
+func NewAnonymousCatalog(schema *bonobo.Schema) *anonymousCatalog {
 	return &anonymousCatalog{schema: schema}
 }
 
 type anonymousCatalog struct {
-	schema *arrow.Schema
+	schema *bonobo.Schema
 }
 
-func (c *anonymousCatalog) Schema(identifier []string) (*arrow.Schema, error) {
+func (c *anonymousCatalog) Schema(identifier []string) (*bonobo.Schema, error) {
 	return c.schema, nil
 }
 

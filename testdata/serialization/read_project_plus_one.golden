@@ -1,7 +1,5 @@
 Root Schema:
-schema:
-  fields: 1
-    - add(#2, 1::int64): type=int64
+NSTRUCT<add(#2, 1::i64): i64>
 
 Proto:
 {
@@ -56,7 +54,8 @@ Proto:
            {
             "decimal": {
              "scale": 8,
-             "precision": 38
+             "precision": 38,
+             "nullability": "NULLABILITY_REQUIRED"
             }
            },
            {
@@ -112,7 +111,7 @@ Proto:
      }
     },
     "names": [
-     "add(#2, 1::int64)"
+     "add(#2, 1::i64)"
     ]
    }
   }

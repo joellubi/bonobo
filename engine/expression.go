@@ -8,7 +8,6 @@ import (
 	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
-	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -16,7 +15,7 @@ type Expr interface {
 	fmt.Stringer
 	ToProto(input Relation, extensions *substrait.ExtensionRegistry) (*proto.Expression, error)
 
-	Field(input Relation) (arrow.Field, error)
+	Field(input Relation) (bonobo.Field, error)
 }
 
 type ExprList []Expr
@@ -48,8 +47,8 @@ func (expr *Column) ToProto(input Relation, extensions *substrait.ExtensionRegis
 		return nil, fmt.Errorf("input schema required to serialize Column expr: %w", err)
 	}
 
-	for i, field := range schema.Fields() {
-		if field.Name == expr.name {
+	for i, name := range schema.Names {
+		if name == expr.name {
 			structField = &proto.Expression_ReferenceSegment_StructField{Field: int32(i)}
 			break
 		}
@@ -74,22 +73,18 @@ func (expr *Column) ToProto(input Relation, extensions *substrait.ExtensionRegis
 	}, nil
 }
 
-func (expr *Column) Field(input Relation) (arrow.Field, error) {
+func (expr *Column) Field(input Relation) (bonobo.Field, error) {
 	inputSchema, err := input.Schema()
 	if err != nil {
-		return arrow.Field{}, err
+		return bonobo.Field{}, err
 	}
 
-	fields, ok := inputSchema.FieldsByName(expr.name)
-	if !ok {
-		return arrow.Field{}, fmt.Errorf("no column named %s", expr.name)
+	for _, field := range inputSchema.Fields() {
+		if field.Name == expr.name {
+			return field, nil
+		}
 	}
-
-	if len(fields) != 1 {
-		return arrow.Field{}, fmt.Errorf("column expression with %d fields: %s, unimplemented", len(fields), fields)
-	}
-
-	return fields[0], nil
+	return bonobo.Field{}, fmt.Errorf("no column named %s", expr.name)
 }
 
 func (expr *Column) String() string {
@@ -122,13 +117,18 @@ func (expr *ColumnIndex) ToProto(input Relation, extensions *substrait.Extension
 	}, nil
 }
 
-func (expr *ColumnIndex) Field(input Relation) (arrow.Field, error) {
+func (expr *ColumnIndex) Field(input Relation) (bonobo.Field, error) {
 	inputSchema, err := input.Schema()
 	if err != nil {
-		return arrow.Field{}, err
+		return bonobo.Field{}, err
 	}
 
-	return inputSchema.Field(expr.index), nil
+	fields := inputSchema.Fields()
+	if expr.index >= len(fields) {
+		return bonobo.Field{}, fmt.Errorf("column index %d out of range for input with %d fields", expr.index, len(fields))
+	}
+
+	return fields[expr.index], nil
 }
 
 func (expr *ColumnIndex) String() string {
@@ -136,28 +136,28 @@ func (expr *ColumnIndex) String() string {
 }
 
 func NewLiteralExpr(val any) *Literal {
-	var typ arrow.DataType
+	var typ bonobo.Type
 
 	switch v := val.(type) {
 	case bool:
-		typ = bonobo.ArrowTypes.BooleanType
+		typ = bonobo.Types.BooleanType(false)
 	case int8:
-		typ = bonobo.ArrowTypes.Int8Type
+		typ = bonobo.Types.Int8Type(false)
 	case int16:
-		typ = bonobo.ArrowTypes.Int16Type
+		typ = bonobo.Types.Int16Type(false)
 	case int32:
-		typ = bonobo.ArrowTypes.Int32Type
+		typ = bonobo.Types.Int32Type(false)
 	case int64:
-		typ = bonobo.ArrowTypes.Int64Type
+		typ = bonobo.Types.Int64Type(false)
 	case int:
-		typ = bonobo.ArrowTypes.Int64Type
+		typ = bonobo.Types.Int64Type(false)
 		val = int64(v)
 	case float32:
-		typ = bonobo.ArrowTypes.FloatType
+		typ = bonobo.Types.FloatType(false)
 	case float64:
-		typ = bonobo.ArrowTypes.DoubleType
+		typ = bonobo.Types.DoubleType(false)
 	case string:
-		typ = bonobo.ArrowTypes.StringType
+		typ = bonobo.Types.StringType(false)
 	default:
 		panic(fmt.Sprintf("invalid literal type: %T", v))
 	}
@@ -167,11 +167,11 @@ func NewLiteralExpr(val any) *Literal {
 
 type Literal struct {
 	val any
-	typ arrow.DataType
+	typ bonobo.Type
 }
 
-func (expr *Literal) Field(input Relation) (arrow.Field, error) {
-	return arrow.Field{Name: expr.Name(), Type: expr.typ}, nil
+func (expr *Literal) Field(input Relation) (bonobo.Field, error) {
+	return bonobo.Field{Name: expr.Name(), Type: expr.typ}, nil
 }
 
 func (expr *Literal) String() string {
@@ -274,10 +274,10 @@ type Alias struct {
 }
 
 // Field implements Expr.
-func (expr *Alias) Field(input Relation) (arrow.Field, error) {
+func (expr *Alias) Field(input Relation) (bonobo.Field, error) {
 	field, err := expr.child.Field(input)
 	if err != nil {
-		return arrow.Field{}, err
+		return bonobo.Field{}, err
 	}
 
 	field.Name = expr.alias

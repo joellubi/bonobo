@@ -13,7 +13,6 @@ import (
 	"github.com/joellubi/bonobo/df"
 	"github.com/joellubi/bonobo/engine"
 
-	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/proto"
 )
@@ -22,24 +21,23 @@ var update = flag.Bool("update", false, "update golden files")
 
 type testCatalog struct{}
 
-func (*testCatalog) Schema(identifier []string) (*arrow.Schema, error) {
+func (*testCatalog) Schema(identifier []string) (*bonobo.Schema, error) {
 	var (
-		schema *arrow.Schema
+		schema *bonobo.Schema
 		err    error
 	)
 	fqTableName := strings.Join(identifier, ".")
 
 	switch fqTableName {
 	case "test_db.main.table1":
-		schema = arrow.NewSchema(
-			[]arrow.Field{
-				{Name: "col1", Type: bonobo.ArrowTypes.BooleanType},
-				{Name: "col2", Type: bonobo.ArrowTypes.StringType},
-				{Name: "col3", Type: bonobo.ArrowTypes.Int64Type},
-				{Name: "col4", Type: bonobo.ArrowTypes.Decimal(38, 8)},
-				{Name: "col5", Type: bonobo.ArrowTypes.DateType},
+		schema = bonobo.NewSchema(
+			[]bonobo.Field{
+				{Name: "col1", Type: bonobo.Types.BooleanType(false)},
+				{Name: "col2", Type: bonobo.Types.StringType(false)},
+				{Name: "col3", Type: bonobo.Types.Int64Type(false)},
+				{Name: "col4", Type: bonobo.Types.DecimalType(38, 8, false)},
+				{Name: "col5", Type: bonobo.Types.DateType(false)},
 			},
-			nil,
 		)
 	default:
 		err = fmt.Errorf("table not found: %s", fqTableName)

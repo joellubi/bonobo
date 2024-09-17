@@ -5,6 +5,7 @@ import (
 
 	"github.com/joellubi/bonobo/engine"
 	"github.com/joellubi/bonobo/sql/parse"
+	"github.com/substrait-io/substrait-go/extensions"
 )
 
 func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {
@@ -98,21 +99,17 @@ func CreateLogicalPlan(query *parse.SqlQuery) (engine.Relation, error) {
 	return plan, nil
 }
 
-type FunctionID struct {
-	URI, Name string
-}
-
 // TODO: Might need to know args to pick function if operator is overloaded
-func resolveFunctionID(op string) (FunctionID, error) {
+func resolveFunctionID(op string) (extensions.ID, error) {
 	switch op {
 	case "+":
 		return Add, nil
 	default:
-		return FunctionID{}, fmt.Errorf("cannot resolve function for operator: %s", op)
+		return extensions.ID{}, fmt.Errorf("cannot resolve function for operator: %s", op)
 	}
 }
 
-var Add = FunctionID{
+var Add = extensions.ID{
 	URI:  "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml",
 	Name: "add",
 }

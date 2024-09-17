@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
-	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/substrait-io/substrait-go/proto"
 )
 
@@ -14,7 +14,7 @@ type Relation interface { // TODO: Plan implements Table?
 	fmt.Stringer
 	ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel, error)
 
-	Schema() (*arrow.Schema, error)
+	Schema() (*bonobo.Schema, error)
 	Children() []Relation
 }
 
@@ -30,7 +30,7 @@ func (*Read) Children() []Relation {
 	return nil
 }
 
-func (r *Read) Schema() (*arrow.Schema, error) {
+func (r *Read) Schema() (*bonobo.Schema, error) {
 	return r.table.Schema()
 }
 
@@ -61,10 +61,10 @@ type Projection struct {
 	exprs ExprList
 }
 
-func (p *Projection) evaluateSchema() (*arrow.Schema, error) {
-	fields := make([]arrow.Field, 0, len(p.exprs))
+func (p *Projection) Schema() (*bonobo.Schema, error) {
+	fields := make([]bonobo.Field, len(p.exprs))
 	fieldNames := make(map[string]bool, len(p.exprs))
-	for _, expr := range p.exprs {
+	for i, expr := range p.exprs {
 		if expr == nil {
 			return nil, fmt.Errorf("invalid Projection, expr is nil")
 		}
@@ -73,23 +73,20 @@ func (p *Projection) evaluateSchema() (*arrow.Schema, error) {
 			return nil, err
 		}
 
+		// TODO: Broader duplicate detection, outside of only projection
 		if _, found := fieldNames[f.Name]; found {
 			return nil, fmt.Errorf("invalid Projection, duplicate field name %s", f.Name)
 		}
 
 		fieldNames[f.Name] = true
-		fields = append(fields, f)
+		fields[i] = f
 	}
 
-	return arrow.NewSchema(fields, nil), nil
+	return bonobo.NewSchema(fields), nil
 }
 
 func (p *Projection) Children() []Relation {
 	return []Relation{p.input}
-}
-
-func (p *Projection) Schema() (*arrow.Schema, error) {
-	return p.evaluateSchema() // TODO: Consolidate
 }
 
 // String implements Plan.
@@ -154,7 +151,7 @@ func (s *Selection) ToProto(extensions *substrait.ExtensionRegistry) (*proto.Rel
 	}, nil
 }
 
-func (s *Selection) Schema() (*arrow.Schema, error) {
+func (s *Selection) Schema() (*bonobo.Schema, error) {
 	return s.input.Schema()
 }
 

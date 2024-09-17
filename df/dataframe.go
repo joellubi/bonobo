@@ -1,16 +1,15 @@
 package df
 
 import (
+	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/engine"
-
-	"github.com/apache/arrow/go/v17/arrow"
 )
 
 type DataFrame interface {
 	Select(exprs ...engine.Expr) DataFrame
 	Filter(expr engine.Expr) DataFrame
 
-	Schema() (*arrow.Schema, error)
+	Schema() (*bonobo.Schema, error)
 	LogicalPlan() engine.Relation
 }
 
@@ -41,7 +40,7 @@ func (df dataframe) Filter(expr engine.Expr) DataFrame {
 	return df
 }
 
-func (df dataframe) Schema() (*arrow.Schema, error) { return df.plan.Schema() }
+func (df dataframe) Schema() (*bonobo.Schema, error) { return df.plan.Schema() }
 
 func (df dataframe) LogicalPlan() engine.Relation { return df.plan }
 

@@ -43,7 +43,8 @@ Substrait Plan:
              {
               "decimal": {
                "scale": 8,
-               "precision": 38
+               "precision": 38,
+               "nullability": "NULLABILITY_REQUIRED"
               }
              },
              {

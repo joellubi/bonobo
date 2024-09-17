@@ -8,34 +8,10 @@ import (
 	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
-	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/types"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-func FormatPlanText(plan Relation) string {
-	var (
-		bldr   strings.Builder
-		indent int
-	)
-	formatPlan(plan, &bldr, indent)
-	return bldr.String()
-}
-
-func formatPlan(plan Relation, bldr *strings.Builder, indent int) {
-	if indent > 0 {
-		bldr.WriteString("\n")
-	}
-
-	for i := 0; i < indent; i++ {
-		bldr.WriteString("\t")
-	}
-
-	bldr.WriteString(plan.String())
-	for _, child := range plan.Children() {
-		formatPlan(child, bldr, indent+1)
-	}
-}
 
 func FormatPlan(plan *Plan) (string, error) {
 	planProto, err := plan.ToProto()
@@ -66,212 +42,18 @@ func FormatPlanProto(plan *proto.Plan) (string, error) {
 	return string(b), nil
 }
 
-func formatSchema(schema *arrow.Schema) string {
+func formatSchema(schema *bonobo.Schema) string {
 	if schema == nil {
 		return "None"
 	}
 	var bldr strings.Builder
-	for i, f := range schema.Fields() {
+	for i, typ := range schema.Struct.Types {
 		if i != 0 {
 			bldr.WriteString(", ")
 		}
-		fmt.Fprintf(&bldr, "%s: %s", f.Name, f.Type)
+		fmt.Fprintf(&bldr, "%s: %s", schema.Names[i], typ)
 	}
 	return bldr.String()
-}
-
-func schemaToNamedStruct(schema *arrow.Schema) (*proto.NamedStruct, error) {
-	var err error
-
-	names := make([]string, schema.NumFields())
-	types := make([]*proto.Type, schema.NumFields())
-	for i, field := range schema.Fields() {
-		names[i] = field.Name
-		types[i], err = ProtoTypeForArrowType(field.Type, field.Nullable)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &proto.NamedStruct{
-		Names: names,
-		Struct: &proto.Type_Struct{
-			Types:       types,
-			Nullability: proto.Type_NULLABILITY_REQUIRED,
-		},
-	}, err
-}
-
-func namedStructToSchema(namedStruct *proto.NamedStruct) (*arrow.Schema, error) {
-	types := namedStruct.Struct.GetTypes()
-	fields := make([]arrow.Field, len(namedStruct.Names))
-	for i, name := range namedStruct.Names {
-		arrowType, nullable, err := arrowTypeForProtoType(types[i])
-		if err != nil {
-			return nil, err
-		}
-		fields[i] = arrow.Field{Name: name, Type: arrowType, Nullable: nullable}
-	}
-	return arrow.NewSchema(fields, nil), nil
-}
-
-func arrowTypeForProtoType(protoType *proto.Type) (arrow.DataType, bool, error) {
-	var (
-		arrowType   arrow.DataType
-		nullability proto.Type_Nullability
-		nullable    bool
-		err         error
-	)
-
-	switch t := protoType.GetKind().(type) {
-	case *proto.Type_Bool:
-		nullability = t.Bool.GetNullability()
-		arrowType = bonobo.ArrowTypes.BooleanType
-	case *proto.Type_I8_:
-		nullability = t.I8.GetNullability()
-		arrowType = bonobo.ArrowTypes.Int8Type
-	case *proto.Type_I16_:
-		nullability = t.I16.GetNullability()
-		arrowType = bonobo.ArrowTypes.Int16Type
-	case *proto.Type_I32_:
-		nullability = t.I32.GetNullability()
-		arrowType = bonobo.ArrowTypes.Int32Type
-	case *proto.Type_I64_:
-		nullability = t.I64.GetNullability()
-		arrowType = bonobo.ArrowTypes.Int64Type
-	case *proto.Type_Fp32:
-		nullability = t.Fp32.GetNullability()
-		arrowType = bonobo.ArrowTypes.FloatType
-	case *proto.Type_Fp64:
-		nullability = t.Fp64.GetNullability()
-		arrowType = bonobo.ArrowTypes.DoubleType
-	case *proto.Type_String_:
-		nullability = t.String_.GetNullability()
-		arrowType = bonobo.ArrowTypes.StringType
-	case *proto.Type_Decimal_:
-		nullability = t.Decimal.GetNullability()
-		arrowType = bonobo.ArrowTypes.Decimal(t.Decimal.GetPrecision(), t.Decimal.GetScale())
-	case *proto.Type_Date_:
-		nullability = t.Date.GetNullability()
-		arrowType = bonobo.ArrowTypes.DateType
-	default:
-		err = fmt.Errorf("unsupported proto type: %s", protoType.GetKind())
-	}
-
-	nullable = nullability == proto.Type_NULLABILITY_NULLABLE
-	return arrowType, nullable, err
-}
-
-func ProtoTypeForArrowType(arrowType arrow.DataType, nullable bool) (*proto.Type, error) {
-	nullability := proto.Type_NULLABILITY_REQUIRED
-	if nullable {
-		nullability = proto.Type_NULLABILITY_NULLABLE
-	}
-
-	switch arrowType.ID() {
-	case bonobo.ArrowTypes.BooleanType.ID():
-		return &proto.Type{
-			Kind: &proto.Type_Bool{
-				Bool: &proto.Type_Boolean{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.Int8Type.ID():
-		return &proto.Type{
-			Kind: &proto.Type_I8_{
-				I8: &proto.Type_I8{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.Int16Type.ID():
-		return &proto.Type{
-			Kind: &proto.Type_I16_{
-				I16: &proto.Type_I16{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.Int32Type.ID():
-		return &proto.Type{
-			Kind: &proto.Type_I32_{
-				I32: &proto.Type_I32{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.Int64Type.ID():
-		return &proto.Type{
-			Kind: &proto.Type_I64_{
-				I64: &proto.Type_I64{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.FloatType.ID():
-		return &proto.Type{
-			Kind: &proto.Type_Fp32{
-				Fp32: &proto.Type_FP32{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.DoubleType.ID():
-		return &proto.Type{
-			Kind: &proto.Type_Fp64{
-				Fp64: &proto.Type_FP64{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.StringType.ID():
-		return &proto.Type{
-			Kind: &proto.Type_String_{
-				String_: &proto.Type_String{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case bonobo.ArrowTypes.DateType.ID():
-		return &proto.Type{
-			Kind: &proto.Type_Date_{
-				Date: &proto.Type_Date{
-					Nullability: nullability,
-				},
-			},
-		}, nil
-	case arrow.DECIMAL128:
-		dec, ok := arrowType.(*arrow.Decimal128Type)
-		if !ok {
-			return nil, fmt.Errorf("cannot convert arrow to substrait type: invalid Decimal128: %s", arrowType)
-		}
-
-		return &proto.Type{
-			Kind: &proto.Type_Decimal_{
-				Decimal: &proto.Type_Decimal{
-					Precision: dec.GetPrecision(),
-					Scale:     dec.GetScale(),
-				},
-			},
-		}, nil
-	case arrow.DECIMAL256:
-		dec, ok := arrowType.(*arrow.Decimal256Type)
-		if !ok {
-			return nil, fmt.Errorf("cannot convert arrow to substrait type: invalid Decimal256: %s", arrowType)
-		}
-
-		return &proto.Type{
-			Kind: &proto.Type_Decimal_{
-				Decimal: &proto.Type_Decimal{
-					Precision: dec.GetPrecision(),
-					Scale:     dec.GetScale(),
-				},
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unrecognized arrow type: %s", arrowType.Name())
-	}
 }
 
 func FromProto(plan *proto.Plan) (*Plan, error) {
@@ -335,8 +117,8 @@ func (bldr *planBuilder) RelRoot(rel *proto.Rel, names []string) (Relation, erro
 	}
 
 	if aliasing {
-		exprs := make([]Expr, schema.NumFields())
-		for i := 0; i < schema.NumFields(); i++ {
+		exprs := make([]Expr, schema.Len())
+		for i := range exprs {
 			exprs[i] = NewAliasExpr(NewColumnIndexExpr(i), names[i])
 		}
 
@@ -421,10 +203,7 @@ func (bldr *planBuilder) ScalarFunctionExpr(expr *proto.Expression_ScalarFunctio
 		return nil, err
 	}
 
-	output, _, err := arrowTypeForProtoType(expr.GetOutputType())
-	if err != nil {
-		return nil, err
-	}
+	output := types.TypeFromProto(expr.GetOutputType())
 
 	args := make([]Expr, len(expr.Arguments))
 	for i, arg := range expr.Arguments {
@@ -482,10 +261,7 @@ func (bldr *planBuilder) ReferenceSegmentExpr(expr *proto.Expression_ReferenceSe
 }
 
 func (bldr *planBuilder) Read(rel *proto.ReadRel) (*Read, error) {
-	schema, err := namedStructToSchema(rel.GetBaseSchema())
-	if err != nil {
-		return nil, err
-	}
+	schema := bonobo.NewSchemaFromProto(rel.GetBaseSchema())
 
 	var table Table
 	switch t := rel.GetReadType().(type) {

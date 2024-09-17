@@ -1,11 +1,5 @@
 Root Schema:
-schema:
-  fields: 5
-    - col1: type=bool
-    - col2: type=utf8
-    - col3: type=int64
-    - col4: type=decimal(38, 8)
-    - col5: type=date32
+NSTRUCT<col1: boolean, col2: string, col3: i64, col4: decimal<38,8>, col5: date>
 
 Proto:
 {
@@ -43,7 +37,8 @@ Proto:
          {
           "decimal": {
            "scale": 8,
-           "precision": 38
+           "precision": 38,
+           "nullability": "NULLABILITY_REQUIRED"
           }
          },
          {

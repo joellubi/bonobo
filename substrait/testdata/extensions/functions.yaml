@@ -1,0 +1,14 @@
+%YAML 1.2
+---
+scalar_functions:
+  -
+    name: "add"
+    description: "Add two values."
+    impls:
+      - args:
+          - value: i64
+          - value: i64
+        options:
+          overflow:
+            values: [ SILENT, SATURATE, ERROR ]
+        return: i64
