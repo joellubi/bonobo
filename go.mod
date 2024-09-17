@@ -5,7 +5,7 @@ go 1.21.6
 require (
 	github.com/apache/arrow/go/v17 v17.0.0-20240525214352-1c9e393b7319
 	github.com/goccy/go-yaml v1.11.0
-	github.com/hashicorp/go-getter v1.7.4
+	github.com/hashicorp/go-getter v1.7.6
 	github.com/stretchr/testify v1.9.0
 	github.com/substrait-io/substrait-go v0.4.2
 	google.golang.org/protobuf v1.34.1
