@@ -1,13 +1,15 @@
 module github.com/joellubi/bonobo
 
-go 1.21.6
+go 1.22
+
+toolchain go1.22.3
 
 require (
 	github.com/apache/arrow/go/v17 v17.0.0-20240525214352-1c9e393b7319
 	github.com/goccy/go-yaml v1.11.0
 	github.com/hashicorp/go-getter v1.7.6
 	github.com/stretchr/testify v1.9.0
-	github.com/substrait-io/substrait-go v0.4.2
+	github.com/substrait-io/substrait-go v1.0.0
 	google.golang.org/protobuf v1.34.1
 )
 
@@ -20,6 +22,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.122 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
+	github.com/creasty/defaults v1.8.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
