@@ -8,6 +8,7 @@ import (
 
 	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/types"
 )
@@ -40,18 +41,17 @@ func TestFunctionRepository(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetFunctionImplementations(t *testing.T) {
+func TestGetLocalFunctionImplementations(t *testing.T) {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
 
-	uri := "testdata/extensions/functions.yaml"
+	uri := "file://" + path.Join(dir, "testdata/extensions/functions.yaml")
 	repo := substrait.NewFunctionRepository()
 
-	fpath := path.Join(dir, uri)
-	require.NoError(t, substrait.RegisterImplementationsFromURI(repo, fpath))
+	require.NoError(t, substrait.RegisterImplementationsFromURI(repo, uri))
 
 	args := []bonobo.Type{bonobo.Types.Int64Type(false), bonobo.Types.Int64Type(false)}
-	impl, err := repo.GetImplementation(fpath, "add", args...)
+	impl, err := repo.GetImplementation(uri, "add", args...)
 	require.NoError(t, err)
 
 	require.Equal(t, "add:i64_i64", impl.Signature())
@@ -61,6 +61,17 @@ func TestGetFunctionImplementations(t *testing.T) {
 	ret.GetNullability()
 	require.Equal(t, types.NullabilityRequired, ret.GetNullability())
 	require.Equal(t, bonobo.Types.Int64Type(false), ret)
+}
+
+func TestGetDefaultFunctionImplementations(t *testing.T) {
+	uri := "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+	repo := substrait.NewFunctionRepository()
+
+	require.NoError(t, substrait.RegisterImplementationsFromURI(repo, uri))
+
+	assert.Len(t, repo.FunctionsForURI(uri), 31)
+
+	// TODO: assertions on contents
 }
 
 // func TestGetFunctionImplementationsFromGithub(t *testing.T) {

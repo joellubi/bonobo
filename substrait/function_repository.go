@@ -2,23 +2,32 @@ package substrait
 
 import (
 	"bytes"
+	"embed"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-getter"
+	"github.com/hashicorp/go-getter/helper/url"
 	"github.com/joellubi/bonobo"
 	substraitgo "github.com/substrait-io/substrait-go"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
 )
 
+const (
+	defaultExtensionsDir = "https://github.com/substrait-io/substrait/blob/main/extensions/"
+)
+
 var ErrNoMatchingImplementation = errors.New("function: no implementation matching the provided arguments")
+
+//go:embed extensions/*
+var defaultExtensions embed.FS
 
 type FunctionRepository interface {
 	GetImplementation(uri, name string, args ...bonobo.Type) (FunctionImplementation, error)
@@ -40,7 +49,7 @@ func NewFunctionRepository() *functionRepository {
 
 type functionRepository struct {
 	definitions map[string]map[string][]FunctionImplementation
-	variants    map[string]map[string][]extensions.FunctionVariant // TODO
+	// variants    map[string]map[string][]extensions.FunctionVariant // TODO
 }
 
 func (r *functionRepository) FunctionsForURI(uri string) map[string][]FunctionImplementation {
@@ -88,49 +97,51 @@ func (r *functionRepository) RegisterImplementation(uri, name string, impl Funct
 }
 
 func RegisterImplementationsFromURI(repo *functionRepository, uri string, getterOpts ...getter.ClientOption) error {
-	basename := path.Base(uri)
-
-	dir, err := os.MkdirTemp("", basename)
+	r, err := getExtensionFile(uri)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
 
-	if err = getter.GetAny(dir, uri, getterOpts...); err != nil {
+	impls, err := ReadScalarFunctionImplementations(r, uri)
+	if err != nil {
 		return err
 	}
 
-	files := os.DirFS(dir)
-	fs.WalkDir(files, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		f, err := files.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		impls, err := ReadScalarFunctionImplementations(f, uri)
-		if err != nil {
-			return err
-		}
-
-		// impls[0].
-
-		for _, impl := range impls {
-			repo.RegisterImplementation(uri, impl.Name(), &variantFunctionImplementation{variant: impl})
-		}
-
-		return nil
-	})
+	for _, impl := range impls {
+		repo.RegisterImplementation(uri, impl.Name(), &variantFunctionImplementation{variant: impl})
+	}
 
 	return nil
+}
+
+func getExtensionFile(uri string) (io.ReadCloser, error) {
+	if path.Ext(uri) != ".yaml" {
+		return nil, fmt.Errorf("invalid extension URI, expected YAML file, found: %s", uri)
+	}
+
+	dir, base := path.Split(uri)
+	if dir == defaultExtensionsDir {
+		return defaultExtensions.Open(path.Join("extensions", base))
+	}
+
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	switch u.Scheme {
+	case "file":
+		u.Scheme = ""
+		return os.Open(u.String())
+	case "http", "https":
+		res, err := http.Get(u.String())
+		if err != nil {
+			return nil, err
+		}
+		return res.Body, nil
+	default:
+		return nil, fmt.Errorf("unrecognized scheme: %s", u.Scheme)
+	}
 }
 
 type variantFunctionImplementation struct {
