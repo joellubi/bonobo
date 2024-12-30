@@ -7,8 +7,8 @@ import (
 	"github.com/joellubi/bonobo"
 	"github.com/joellubi/bonobo/substrait"
 
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/types"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 var DefaultFunctionRepository = substrait.NewFunctionRepository()

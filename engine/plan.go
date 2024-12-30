@@ -3,7 +3,7 @@ package engine
 import (
 	"github.com/joellubi/bonobo/substrait"
 
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 func NewPlan(root Relation, rels ...Relation) *Plan {

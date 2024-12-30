@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/substrait-io/substrait-go/proto"
-	"github.com/substrait-io/substrait-go/proto/extensions"
+	"github.com/substrait-io/substrait-go/v3/proto"
+	"github.com/substrait-io/substrait-go/v3/proto/extensions"
 )
 
 type ExtensionRegistry struct {

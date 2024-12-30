@@ -11,13 +11,14 @@ import (
 	"path"
 	"strings"
 
+	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	"github.com/hashicorp/go-getter"
 	"github.com/hashicorp/go-getter/helper/url"
 	"github.com/joellubi/bonobo"
-	substraitgo "github.com/substrait-io/substrait-go"
-	"github.com/substrait-io/substrait-go/extensions"
-	"github.com/substrait-io/substrait-go/types"
+	substraitgo "github.com/substrait-io/substrait-go/v3"
+	"github.com/substrait-io/substrait-go/v3/extensions"
+	"github.com/substrait-io/substrait-go/v3/types"
 )
 
 const (
@@ -185,6 +186,11 @@ func ReadScalarFunctionImplementations(r io.Reader, uri string) ([]*extensions.S
 	// implementations := make([]FunctionImplementation, 0)
 	variants := make([]*extensions.ScalarFunctionVariant, 0)
 	for _, scalarFunc := range simpleExtensions.ScalarFunctions {
+		// TODO: Avoid using defaults package, potentially just use upstream Collection
+		if err := defaults.Set(&scalarFunc); err != nil {
+			return nil, err
+		}
+
 		variants = append(variants, scalarFunc.GetVariants(uri)...)
 		// impls, err := scalarFunc.Implementations()
 		// if err != nil {

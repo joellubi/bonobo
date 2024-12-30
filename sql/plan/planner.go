@@ -5,7 +5,7 @@ import (
 
 	"github.com/joellubi/bonobo/engine"
 	"github.com/joellubi/bonobo/sql/parse"
-	"github.com/substrait-io/substrait-go/extensions"
+	"github.com/substrait-io/substrait-go/v3/extensions"
 )
 
 func CreateLogicalExpr(expr parse.SqlExpr) (engine.Expr, error) {

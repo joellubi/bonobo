@@ -14,7 +14,7 @@ import (
 	"github.com/joellubi/bonobo/engine"
 
 	"github.com/stretchr/testify/require"
-	"github.com/substrait-io/substrait-go/proto"
+	"github.com/substrait-io/substrait-go/v3/proto"
 )
 
 var update = flag.Bool("update", false, "update golden files")
